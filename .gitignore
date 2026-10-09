@@ -1,0 +1,19 @@
+# Binaries and executables
+*.exe
+*.o
+*.obj
+*.dll
+*.so
+*.dylib
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE & System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

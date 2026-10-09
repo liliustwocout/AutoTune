@@ -41,9 +41,11 @@ Tùy vào nhu cầu hát của bạn, có 2 phương án đầu tư:
 
 ---
 
-### Phương án C: Hát Karaoke truyền thống qua Dàn máy (Không cần AutoTune máy tính)
-*Tổng chi phí: ~30.000đ*
-- Chỉ cần mua duy nhất **1 sợi Dây 3.5mm ra 2 đầu hoa sen (RCA)** để lấy nhạc Youtube từ laptop Nitro 5 vào dàn loa JBL. Mic dây cắm trực tiếp vào Vang cơ Calidona như bình thường.
+### Lưu ý đặc biệt về nguồn nhạc Beat Karaoke từ Smart Tivi:
+Nhà bạn đã có **Màn hình Tivi kết nối trực tiếp Youtube**, điều này giúp hệ thống càng tối ưu và chuyên nghiệp hơn:
+- **Tivi phát nhạc Beat Youtube:** Xuất âm thanh từ Tivi xuống cổng **TAPE** (hoặc Optical/Bluetooth) ở mặt sau Vang cơ Calidona P828.
+- **Laptop Acer Nitro 5:** Đóng vai trò là **Bộ xử lý giọng hát (Vocal Processor)** độc lập, chạy phần mềm `karatune.exe` để bẻ nốt AutoTune rồi xuất vào cổng **VIDEO** của Vang cơ.
+- **Vang cơ Calidona P828:** Hòa trộn nhạc Beat từ Tivi với giọng hát AutoTune từ Laptop, đẩy xuống Cục đẩy Yamaha P7000S và phát ra Loa JBL. Laptop không cần tải video Youtube, dành 100% tài nguyên CPU để xử lý AutoTune với độ trễ tối thiểu!
 
 ---
 

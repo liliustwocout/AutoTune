@@ -3,36 +3,54 @@
 
 #include <windows.h>
 #include <vector>
-#include <cmath>
-#include <atomic>
 #include <string>
+#include <cmath>
 #include <algorithm>
+#include <atomic>
+#include <iostream>
 
-// ==============================================================================
-// KARATUNE - PROFESSIONAL VOCAL AUTOTUNE ENGINE (NATIVE C++ GUI)
-// Windows WASAPI Low-Latency Engine + Studio Dark Mode GUI
-// STRICT CONSTRAINT: KHONG DUNG EMOJI, KHONG DUNG ICON
-// ==============================================================================
-
+// ------------------------------------------------------------------------------
+// CAU HINH AUDIO CHUAN PHONG THU
+// ------------------------------------------------------------------------------
 const int SAMPLE_RATE = 48000;
+const int BUFFER_FRAMES = 256;      // ~5.33ms round-trip latency
 const int CHANNELS_IN = 1;
 const int CHANNELS_OUT = 2;
 
+// Bo nho dem tieng vang Karaoke Echo
+const int ECHO_DELAY_SAMPLES = 48000 * 200 / 1000; // 200ms delay
+std::vector<float> g_echo_buffer(ECHO_DELAY_SAMPLES, 0.0f);
+int g_echo_idx = 0;
+
 // ------------------------------------------------------------------------------
-// THANG AM & NOT NHAC
+// THANG AM (MUSICAL SCALES) - HO TRO TIENG VIET CO DAU
 // ------------------------------------------------------------------------------
 struct ScaleDef {
-    const char* name;
+    std::wstring name;
     std::vector<float> freqs;
     std::vector<std::string> names;
 };
 
 std::vector<ScaleDef> g_scales;
+std::atomic<int> g_scale_idx(0);
+std::atomic<bool> g_enable_autotune(true);
+std::atomic<int> g_retune_mode(0); // 0: Nhanh (0ms), 1: Vua (25ms), 2: Tu nhien (50ms)
+std::atomic<float> g_gain_mult(6.0f);
+std::atomic<bool> g_enable_echo(false);
+
+// Bien telemetry giao tiep Audio Thread -> GUI Thread
+std::atomic<float> g_rms(0.0f);
+std::atomic<float> g_f0(0.0f);
+std::atomic<float> g_target_f0(0.0f);
+std::atomic<int>   g_note_idx(-1);
+std::atomic<float> g_cent(0.0f);
 
 void init_scales() {
-    // 1. C Major (Do Truong)
+    g_scales.clear();
+
+    // 1. C Major (Đô Trưởng)
     ScaleDef c_maj;
-    c_maj.name = "C MAJOR (DO TRUONG)";
+    c_maj.name = L"ĐÔ TRƯỞNG (C MAJOR)";
     const char* c_maj_names[] = {
         "C3", "D3", "E3", "F3", "G3", "A3", "B3",
         "C4", "D4", "E4", "F4", "G4", "A4", "B4",
@@ -49,9 +67,9 @@ void init_scales() {
     }
     g_scales.push_back(c_maj);
 
-    // 2. A Minor (La Thu)
+    // 2. A Minor (La Thứ)
     ScaleDef a_min;
-    a_min.name = "A MINOR (LA THU)";
+    a_min.name = L"LA THỨ (A MINOR)";
     const char* a_min_names[] = {
         "A2", "B2", "C3", "D3", "E3", "F3", "G3",
         "A3", "B3", "C4", "D4", "E4", "F4", "G4",
@@ -68,11 +86,11 @@ void init_scales() {
     }
     g_scales.push_back(a_min);
 
-    // 3. Chromatic (Ban Am Toan Phan - 12 Not)
+    // 3. Chromatic (12 Bán Âm Toàn Phần)
     ScaleDef chrom;
-    chrom.name = "CHROMATIC (TAT CA NOT)";
+    chrom.name = L"12 BÁN ÂM (CHROMATIC)";
     const char* note_letters[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
-    for (int midi = 48; midi <= 84; ++midi) { // C3 to C6
+    for (int midi = 48; midi <= 84; ++midi) {
         float f = 440.0f * std::pow(2.0f, (midi - 69.0f) / 12.0f);
         int oct = (midi / 12) - 1;
         std::string n = std::string(note_letters[midi % 12]) + std::to_string(oct);
@@ -81,9 +99,9 @@ void init_scales() {
     }
     g_scales.push_back(chrom);
 
-    // 4. G Major (Sol Truong)
+    // 4. G Major (Sol Trưởng)
     ScaleDef g_maj;
-    g_maj.name = "G MAJOR (SOL TRUONG)";
+    g_maj.name = L"SOL TRƯỞNG (G MAJOR)";
     const char* g_maj_names[] = {
         "G2", "A2", "B2", "C3", "D3", "E3", "F#3",
         "G3", "A3", "B3", "C4", "D4", "E4", "F#4",
@@ -99,6 +117,25 @@ void init_scales() {
         g_maj.names.push_back(g_maj_names[i]);
     }
     g_scales.push_back(g_maj);
+
+    // 5. D Minor (Rê Thứ)
+    ScaleDef d_min;
+    d_min.name = L"RÊ THỨ (D MINOR)";
+    const char* d_min_names[] = {
+        "D3", "E3", "F3", "G3", "A3", "Bb3", "C4",
+        "D4", "E4", "F4", "G4", "A4", "Bb4", "C5",
+        "D5", "E5", "F5", "G5", "A5", "Bb5", "C6"
+    };
+    const float d_min_freqs[] = {
+        146.83f, 164.81f, 174.61f, 196.00f, 220.00f, 233.08f, 261.63f,
+        293.66f, 329.63f, 349.23f, 392.00f, 440.00f, 466.16f, 523.25f,
+        587.33f, 659.25f, 698.46f, 783.99f, 880.00f, 932.33f, 1046.50f
+    };
+    for (int i = 0; i < 21; ++i) {
+        d_min.freqs.push_back(d_min_freqs[i]);
+        d_min.names.push_back(d_min_names[i]);
+    }
+    g_scales.push_back(d_min);
 }
 
 // ------------------------------------------------------------------------------
@@ -112,8 +149,8 @@ public:
     int write_pos;
     double phase;
 
-    CppPitchShifter(int sr = 48000, float window_ms = 40.0f) {
-        win_size = (int)(window_ms * sr / 1000.0f);
+    CppPitchShifter(int sample_rate = 48000, float win_ms = 40.0f) {
+        win_size = (int)(sample_rate * (win_ms / 1000.0f));
         buf_size = win_size * 4;
         buffer.assign(buf_size, 0.0f);
         write_pos = 0;
@@ -193,10 +230,11 @@ public:
 
         if (out_rms < 0.005f) {
             last_pitch = 0.0f;
+            hold_frames = 0;
             return 0.0f;
         }
 
-        int min_period = sr / 750;
+        int min_period = sr / 850;
         int max_period = sr / 65;
 
         float max_corr = -1e9f;
@@ -259,32 +297,15 @@ CppPitchDetector g_detector(SAMPLE_RATE, 1024);
 CppPitchShifter g_shifter(SAMPLE_RATE, 40.0f);
 std::vector<float> g_boosted_buf;
 std::vector<float> g_tuned_buf;
-
-std::atomic<float> g_rms(0.0f);
-std::atomic<float> g_f0(0.0f);
-std::atomic<float> g_target_f0(0.0f);
-std::atomic<int>   g_scale_idx(0);
-std::atomic<int>   g_note_idx(-1);
-std::atomic<float> g_cent(0.0f);
-std::atomic<bool>  g_enable_autotune(true);
-std::atomic<int>   g_retune_mode(1); // 0: Fast (T-Pain), 1: Med (Pop), 2: Natural
-std::atomic<float> g_gain_mult(6.0f); // Preamp gain
-std::atomic<bool>  g_enable_echo(false);
-
 float g_smoothed_ratio = 1.0f;
 
-// Echo buffer
-const int ECHO_DELAY_SAMPLES = (int)(0.18f * SAMPLE_RATE);
-std::vector<float> g_echo_buffer(ECHO_DELAY_SAMPLES, 0.0f);
-int g_echo_idx = 0;
-
-void audio_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {
+// Callback xu ly am thanh miniaudio
+void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {
+    (void)pDevice;
     const float* pIn = (const float*)pInput;
     float* pOut = (float*)pOutput;
 
-    if (pIn == NULL || pOut == NULL) return;
-
-    if ((int)g_boosted_buf.size() < (int)frameCount) {
+    if (g_boosted_buf.size() < frameCount) {
         g_boosted_buf.resize(frameCount);
         g_tuned_buf.resize(frameCount);
     }
@@ -299,21 +320,21 @@ void audio_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_ui
 
     float target_f0 = 0.0f;
     int note_idx = -1;
-    float target_ratio = 1.0f;
     float cent_diff = 0.0f;
+    float target_ratio = 1.0f;
 
-    int scale_id = g_scale_idx.load();
-    if (scale_id < 0 || scale_id >= (int)g_scales.size()) scale_id = 0;
-    const ScaleDef& current_scale = g_scales[scale_id];
-
-    if (detected_pitch > 20.0f && g_enable_autotune.load()) {
-        float min_dist = 1e9f;
-        for (int i = 0; i < (int)current_scale.freqs.size(); ++i) {
-            float dist = std::abs(current_scale.freqs[i] - detected_pitch);
-            if (dist < min_dist) {
-                min_dist = dist;
-                target_f0 = current_scale.freqs[i];
-                note_idx = i;
+    if (detected_pitch > 20.0f && rms > 0.005f) {
+        int s_idx = g_scale_idx.load();
+        if (s_idx >= 0 && s_idx < (int)g_scales.size()) {
+            const ScaleDef& sc = g_scales[s_idx];
+            float min_dist = 1e9f;
+            for (size_t i = 0; i < sc.freqs.size(); ++i) {
+                float dist = std::abs(sc.freqs[i] - detected_pitch);
+                if (dist < min_dist) {
+                    min_dist = dist;
+                    target_f0 = sc.freqs[i];
+                    note_idx = (int)i;
+                }
             }
         }
 
@@ -324,9 +345,9 @@ void audio_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_ui
 
             float speed_factor = 0.80f;
             int rmode = g_retune_mode.load();
-            if (rmode == 0) speed_factor = 0.98f; // Fast Robot
-            else if (rmode == 1) speed_factor = 0.80f; // Med Pop
-            else if (rmode == 2) speed_factor = 0.45f; // Natural
+            if (rmode == 0) speed_factor = 0.98f;      // Nhanh (Rap 0ms)
+            else if (rmode == 1) speed_factor = 0.80f; // Vua (Pop 25ms)
+            else if (rmode == 2) speed_factor = 0.45f; // Tu nhien (50ms)
 
             target_ratio = 1.0f + speed_factor * (ratio - 1.0f);
             cent_diff = 1200.0f * (float)std::log2((double)target_f0 / (double)detected_pitch);
@@ -364,30 +385,29 @@ void audio_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_ui
 }
 
 // ------------------------------------------------------------------------------
-// GIAO DIEN WINDOWS WIN32 GUI CHUYEN NGHIEP (KHONG DUNG EMOJI, KHONG DUNG ICON)
+// GIAO DIEN NATIVE WIN32 - TIENG VIET CO DAU CHUAN - KHONG DUNG EMOJI / ICON
 // ------------------------------------------------------------------------------
-const int WIN_WIDTH = 920;
-const int WIN_HEIGHT = 640;
+const int WIN_WIDTH = 960;
+const int WIN_HEIGHT = 670;
 
-// Lich su tan so de ve bieu do song
-const int PITCH_HISTORY_LEN = 140;
+const int PITCH_HISTORY_LEN = 160;
 float g_pitch_history[PITCH_HISTORY_LEN] = {0};
 int g_pitch_hist_head = 0;
 
 // Toa do nut bam
-RECT g_btn_autotune = { 40,  490, 240, 550 };
-RECT g_btn_scale    = { 260, 490, 460, 550 };
-RECT g_btn_speed    = { 480, 490, 680, 550 };
-RECT g_btn_gain     = { 700, 490, 880, 550 };
-RECT g_btn_echo     = { 700, 565, 880, 605 };
+RECT g_btn_autotune = { 40,  500, 240, 565 };
+RECT g_btn_scale    = { 260, 500, 480, 565 };
+RECT g_btn_speed    = { 500, 500, 720, 565 };
+RECT g_btn_gain     = { 740, 500, 920, 565 };
+RECT g_btn_echo     = { 740, 580, 920, 620 };
 
-void DrawRoundedBox(HDC hdc, int left, int top, int right, int bottom, COLORREF fillColor, COLORREF borderColor) {
+void DrawRoundedBox(HDC hdc, int left, int top, int right, int bottom, COLORREF fillColor, COLORREF borderColor, int radius = 10) {
     HBRUSH fillBrush = CreateSolidBrush(fillColor);
     HPEN borderPen = CreatePen(PS_SOLID, 1, borderColor);
     HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, fillBrush);
     HPEN oldPen = (HPEN)SelectObject(hdc, borderPen);
 
-    RoundRect(hdc, left, top, right, bottom, 12, 12);
+    RoundRect(hdc, left, top, right, bottom, radius, radius);
 
     SelectObject(hdc, oldBrush);
     SelectObject(hdc, oldPen);
@@ -395,56 +415,58 @@ void DrawRoundedBox(HDC hdc, int left, int top, int right, int bottom, COLORREF 
     DeleteObject(borderPen);
 }
 
-void DrawLabel(HDC hdc, int x, int y, const char* text, COLORREF color, int fontSize, bool bold = false) {
-    HFONT font = CreateFontA(
+void DrawLabelW(HDC hdc, int x, int y, const wchar_t* text, COLORREF color, int fontSize, bool bold = false) {
+    HFONT font = CreateFontW(
         fontSize, 0, 0, 0, 
         bold ? FW_BOLD : FW_NORMAL, 
         FALSE, FALSE, FALSE, 
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, 
         CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, 
-        DEFAULT_PITCH | FF_DONTCARE, "Segoe UI"
+        DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI"
     );
     HFONT oldFont = (HFONT)SelectObject(hdc, font);
     SetTextColor(hdc, color);
     SetBkMode(hdc, TRANSPARENT);
-    TextOutA(hdc, x, y, text, (int)strlen(text));
+    TextOutW(hdc, x, y, text, (int)wcslen(text));
     SelectObject(hdc, oldFont);
     DeleteObject(font);
 }
 
-void DrawCenteredText(HDC hdc, RECT rect, const char* text, COLORREF color, int fontSize, bool bold = false) {
-    HFONT font = CreateFontA(
+void DrawCenteredTextW(HDC hdc, RECT rect, const wchar_t* text, COLORREF color, int fontSize, bool bold = false) {
+    HFONT font = CreateFontW(
         fontSize, 0, 0, 0, 
         bold ? FW_BOLD : FW_NORMAL, 
         FALSE, FALSE, FALSE, 
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, 
         CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, 
-        DEFAULT_PITCH | FF_DONTCARE, "Segoe UI"
+        DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI"
     );
     HFONT oldFont = (HFONT)SelectObject(hdc, font);
     SetTextColor(hdc, color);
     SetBkMode(hdc, TRANSPARENT);
-    DrawTextA(hdc, text, -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    DrawTextW(hdc, text, -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     SelectObject(hdc, oldFont);
     DeleteObject(font);
 }
 
 void RenderGUI(HDC hdc, HWND hwnd) {
-    // 1. Double Buffer Bitmap de chong giat man hinh 100%
+    (void)hwnd;
+    // 1. Double Buffer Bitmap chong rung hinh 100%
     HDC memDC = CreateCompatibleDC(hdc);
     HBITMAP memBitmap = CreateCompatibleBitmap(hdc, WIN_WIDTH, WIN_HEIGHT);
     HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, memBitmap);
 
     // Mau nen Studio Dark Theme
-    COLORREF c_bg       = RGB(18, 22, 28);
-    COLORREF c_card     = RGB(26, 32, 42);
-    COLORREF c_card_bdr = RGB(45, 55, 72);
-    COLORREF c_cyan     = RGB(0, 225, 255);
-    COLORREF c_green    = RGB(16, 185, 129);
-    COLORREF c_amber    = RGB(245, 158, 11);
-    COLORREF c_red      = RGB(239, 68, 68);
-    COLORREF c_text_dim = RGB(140, 155, 175);
-    COLORREF c_text_wh  = RGB(240, 245, 250);
+    COLORREF c_bg        = RGB(13, 17, 23);
+    COLORREF c_card      = RGB(22, 27, 34);
+    COLORREF c_card_bdr  = RGB(48, 54, 61);
+    COLORREF c_cyan      = RGB(0, 229, 255);
+    COLORREF c_green     = RGB(16, 185, 129);
+    COLORREF c_amber     = RGB(245, 158, 11);
+    COLORREF c_red       = RGB(239, 68, 68);
+    COLORREF c_text_dim  = RGB(139, 148, 158);
+    COLORREF c_text_wh   = RGB(240, 246, 252);
+    COLORREF c_meter_bg  = RGB(18, 22, 28);
 
     // To toan bo nen
     HBRUSH bgBrush = CreateSolidBrush(c_bg);
@@ -452,19 +474,22 @@ void RenderGUI(HDC hdc, HWND hwnd) {
     FillRect(memDC, &fullRect, bgBrush);
     DeleteObject(bgBrush);
 
-    // HEADER BAR
-    DrawRoundedBox(memDC, 20, 15, WIN_WIDTH - 20, 75, c_card, c_card_bdr);
-    DrawLabel(memDC, 40, 25, "KARATUNE", c_cyan, 26, true);
-    DrawLabel(memDC, 40, 52, "PROFESSIONAL VOCAL ENGINE | NATIVE LOW-LATENCY C++", c_text_dim, 12, false);
+    // =========================================================================
+    // 1. HEADER BAR
+    // =========================================================================
+    DrawRoundedBox(memDC, 20, 15, WIN_WIDTH - 20, 78, c_card, c_card_bdr);
+    DrawLabelW(memDC, 40, 24, L"KARATUNE PRO", c_cyan, 26, true);
+    DrawLabelW(memDC, 40, 52, L"BỘ XỬ LÝ CAO ĐỘ GIỌNG HÁT THỜI GIAN THỰC | C++ NATIVE", c_text_dim, 12, false);
 
-    DrawLabel(memDC, 630, 28, "WASAPI EXCLUSIVE / 48000 HZ", c_text_wh, 13, true);
-    DrawLabel(memDC, 630, 48, "BUFFER: 256 SAMPLES (~5.3 MS)", c_green, 12, false);
+    // Chip thong so ky thuat ben phai
+    DrawLabelW(memDC, 630, 27, L"CHUẨN ÂM THANH: WASAPI (48.000 HZ)", c_text_wh, 13, true);
+    DrawLabelW(memDC, 630, 48, L"ĐỘ TRỄ PHẦN CỨNG: ~5.3 MS (BUFFER 256 MẪU)", c_green, 12, false);
 
     // =========================================================================
-    // KHU VUC TRUNG TAM: MAN HINH HIEN THI NOT NHAC (PITCH RADAR)
+    // 2. KHU VUC TRUNG TAM: RADAR CAO DO (PITCH RADAR)
     // =========================================================================
-    DrawRoundedBox(memDC, 20, 90, 590, 460, c_card, c_card_bdr);
-    DrawLabel(memDC, 40, 105, "PITCH CORRECTION RADAR", c_text_dim, 12, true);
+    DrawRoundedBox(memDC, 20, 92, 620, 480, c_card, c_card_bdr);
+    DrawLabelW(memDC, 40, 106, L"BẢNG THEO DÕI CAO ĐỘ (PITCH RADAR)", c_text_dim, 12, true);
 
     float f0 = g_f0.load();
     float target = g_target_f0.load();
@@ -474,88 +499,110 @@ void RenderGUI(HDC hdc, HWND hwnd) {
     bool is_tuned = g_enable_autotune.load();
     const ScaleDef& cur_scale = g_scales[scale_id];
 
-    // Cap nhat lich su song de ve do thi
+    // Cap nhat bo nho dem song am thanh
     g_pitch_history[g_pitch_hist_head] = (f0 > 20.0f) ? f0 : 0.0f;
     g_pitch_hist_head = (g_pitch_hist_head + 1) % PITCH_HISTORY_LEN;
 
     if (f0 > 20.0f && note_idx >= 0 && note_idx < (int)cur_scale.names.size()) {
         std::string note_str = cur_scale.names[note_idx];
-        
-        // Hien thi Not nhac to o giua
-        RECT noteRect = { 40, 130, 570, 240 };
-        COLORREF noteColor = (std::abs(cents) <= 6.0f) ? c_green : c_cyan;
-        DrawCenteredText(memDC, noteRect, note_str.c_str(), noteColor, 90, true);
+        std::wstring note_wstr(note_str.begin(), note_str.end());
 
-        // Thong so tan so
-        char freq_buf[128];
-        sprintf(freq_buf, "DETECTED: %5.1f HZ   |   TARGET: %5.1f HZ", f0, target);
-        RECT freqRect = { 40, 235, 570, 260 };
-        DrawCenteredText(memDC, freqRect, freq_buf, c_text_wh, 15, false);
+        // Hien thi Not nhac trung tam co lon
+        RECT noteRect = { 40, 130, 600, 245 };
+        COLORREF noteColor = (std::abs(cents) <= 6.0f) ? c_green : c_cyan;
+        DrawCenteredTextW(memDC, noteRect, note_wstr.c_str(), noteColor, 96, true);
+
+        // Thong so tan so chi tiet bang tieng Viet
+        wchar_t freq_buf[128];
+        swprintf(freq_buf, 128, L"TẦN SỐ ĐO ĐƯỢC: %5.1f HZ   |   MỤC TIÊU: %5.1f HZ", f0, target);
+        RECT freqRect = { 40, 248, 600, 275 };
+        DrawCenteredTextW(memDC, freqRect, freq_buf, c_text_wh, 14, false);
 
         // THANH THUOC DO DO LECH CENT (-50 den +50 Cents)
-        int meter_left = 70;
-        int meter_right = 540;
-        int meter_y = 285;
+        int meter_left = 65;
+        int meter_right = 575;
+        int meter_y = 295;
         int meter_w = meter_right - meter_left;
         int center_x = meter_left + meter_w / 2;
 
-        // Nen thanh do
-        DrawRoundedBox(memDC, meter_left, meter_y, meter_right, meter_y + 16, RGB(18, 22, 28), c_card_bdr);
+        DrawRoundedBox(memDC, meter_left, meter_y, meter_right, meter_y + 16, c_meter_bg, c_card_bdr, 6);
 
-        // Vach giua 0 Cent
+        // Vach danh dau chia do
+        HPEN subTickPen = CreatePen(PS_SOLID, 1, RGB(70, 80, 95));
+        SelectObject(memDC, subTickPen);
+        int tick_step = meter_w / 4; // -50, -25, 0, +25, +50
+        for (int t = 0; t <= 4; ++t) {
+            int tx = meter_left + t * tick_step;
+            MoveToEx(memDC, tx, meter_y - 2, NULL);
+            LineTo(memDC, tx, meter_y + 18);
+        }
+        DeleteObject(subTickPen);
+
+        // Vach tam giua 0 Cent
         HPEN zeroPen = CreatePen(PS_SOLID, 2, c_green);
         SelectObject(memDC, zeroPen);
-        MoveToEx(memDC, center_x, meter_y - 4, NULL);
-        LineTo(memDC, center_x, meter_y + 20);
+        MoveToEx(memDC, center_x, meter_y - 5, NULL);
+        LineTo(memDC, center_x, meter_y + 21);
         DeleteObject(zeroPen);
 
-        // Con tro kim do do lech
+        // Kim chi do lech
         float clamped_cents = std::max(-50.0f, std::min(50.0f, cents));
         int needle_x = center_x + (int)((clamped_cents / 50.0f) * (meter_w / 2));
         
         COLORREF needleColor = (std::abs(cents) <= 6.0f) ? c_green : ((cents > 0) ? c_amber : c_cyan);
         HBRUSH needleBrush = CreateSolidBrush(needleColor);
-        RECT needleRect = { needle_x - 4, meter_y - 2, needle_x + 4, meter_y + 18 };
+        RECT needleRect = { needle_x - 4, meter_y - 3, needle_x + 4, meter_y + 19 };
         FillRect(memDC, &needleRect, needleBrush);
         DeleteObject(needleBrush);
 
-        // Chu thich cent
-        char cent_txt[64];
-        const char* status_str = (std::abs(cents) <= 6.0f) ? "IN TUNE" : ((cents > 0) ? "FLAT (-)" : "SHARP (+)");
-        sprintf(cent_txt, "%+3.0f CENTS [%s]", cents, status_str);
-        RECT centRect = { 40, 310, 570, 335 };
-        DrawCenteredText(memDC, centRect, cent_txt, needleColor, 14, true);
+        // Nhan trang thai do lech Cent Tieng Viet
+        wchar_t cent_txt[128];
+        const wchar_t* status_str = (std::abs(cents) <= 6.0f) ? L"CHUẨN CAO ĐỘ" : ((cents > 0) ? L"HƠI NON (TRẦM)" : L"HƠI GIÀ (CAO)");
+        swprintf(cent_txt, 128, L"%+3.0f CENTS [%ls]", cents, status_str);
+        RECT centRect = { 40, 320, 600, 345 };
+        DrawCenteredTextW(memDC, centRect, cent_txt, needleColor, 13, true);
 
     } else {
-        // Trang thai im lang / cho tin hieu
-        RECT idleRect = { 40, 140, 570, 240 };
-        DrawCenteredText(memDC, idleRect, "--", c_text_dim, 90, true);
-        RECT idleSub = { 40, 240, 570, 270 };
-        DrawCenteredText(memDC, idleSub, "WAITING FOR VOCAL INPUT...", c_text_dim, 14, false);
+        RECT idleRect = { 40, 145, 600, 245 };
+        DrawCenteredTextW(memDC, idleRect, L"--", c_text_dim, 96, true);
+        RECT idleSub = { 40, 250, 600, 280 };
+        DrawCenteredTextW(memDC, idleSub, L"ĐANG CHỜ TÍN HIỆU GIỌNG HÁT TỪ MICRO...", c_text_dim, 14, false);
     }
 
-    // VE BIEU DO SONG CAO DO (PITCH TRAJECTORY STRIP)
+    // VE DO THI LUYEN GIONG THOI GIAN THUC
     int graph_x = 40;
-    int graph_y = 350;
-    int graph_w = 530;
-    int graph_h = 90;
-    DrawRoundedBox(memDC, graph_x, graph_y, graph_x + graph_w, graph_y + graph_h, RGB(18, 22, 28), c_card_bdr);
-    DrawLabel(memDC, graph_x + 10, graph_y + 6, "REAL-TIME TRAJECTORY", c_text_dim, 10, true);
+    int graph_y = 360;
+    int graph_w = 560;
+    int graph_h = 100;
+    DrawRoundedBox(memDC, graph_x, graph_y, graph_x + graph_w, graph_y + graph_h, c_meter_bg, c_card_bdr, 8);
+    DrawLabelW(memDC, graph_x + 12, graph_y + 8, L"QUỸ ĐẠO LUYẾN GIỌNG THỜI GIAN THỰC", c_text_dim, 10, true);
 
+    // Cac duong luoi tham chieu nhe
+    HPEN gridPen = CreatePen(PS_SOLID, 1, RGB(25, 32, 42));
+    HPEN oldPen = (HPEN)SelectObject(memDC, gridPen);
+    for (int g = 1; g <= 3; ++g) {
+        int gy = graph_y + (graph_h * g / 4);
+        MoveToEx(memDC, graph_x + 6, gy, NULL);
+        LineTo(memDC, graph_x + graph_w - 6, gy);
+    }
+    SelectObject(memDC, oldPen);
+    DeleteObject(gridPen);
+
+    // Duong song duoc ve
     HPEN linePen = CreatePen(PS_SOLID, 2, c_cyan);
-    HPEN oldPen = (HPEN)SelectObject(memDC, linePen);
+    oldPen = (HPEN)SelectObject(memDC, linePen);
     bool first_pt = true;
 
     for (int i = 0; i < PITCH_HISTORY_LEN; ++i) {
         int idx = (g_pitch_hist_head + i) % PITCH_HISTORY_LEN;
         float p = g_pitch_history[idx];
-        int px = graph_x + (int)((float)i / (float)PITCH_HISTORY_LEN * graph_w);
+        int px = graph_x + 6 + (int)((float)i / (float)PITCH_HISTORY_LEN * (graph_w - 12));
         
         if (p > 60.0f) {
-            float norm = (p - 100.0f) / 500.0f; // 100Hz den 600Hz
+            float norm = (p - 100.0f) / 500.0f;
             if (norm < 0.0f) norm = 0.0f;
             if (norm > 1.0f) norm = 1.0f;
-            int py = (graph_y + graph_h - 10) - (int)(norm * (graph_h - 25));
+            int py = (graph_y + graph_h - 12) - (int)(norm * (graph_h - 30));
             if (first_pt) {
                 MoveToEx(memDC, px, py, NULL);
                 first_pt = false;
@@ -570,90 +617,105 @@ void RenderGUI(HDC hdc, HWND hwnd) {
     DeleteObject(linePen);
 
     // =========================================================================
-    // KHU VUC BEN PHAI: VU METERS & TRANG THAI AUDIO
+    // 3. KHU VUC BEN PHAI: COT DO TIN HIEU & AM LUONG (SIGNAL TELEMETRY)
     // =========================================================================
-    DrawRoundedBox(memDC, 610, 90, WIN_WIDTH - 20, 460, c_card, c_card_bdr);
-    DrawLabel(memDC, 630, 105, "SIGNAL TELEMETRY", c_text_dim, 12, true);
+    DrawRoundedBox(memDC, 640, 92, WIN_WIDTH - 20, 480, c_card, c_card_bdr);
+    DrawLabelW(memDC, 660, 106, L"THÔNG SỐ TÍN HIỆU & ÂM LƯỢNG", c_text_dim, 12, true);
 
     float cur_rms = g_rms.load();
-    int vu_h = 240;
-    int vu_w = 28;
-    int vu_x1 = 660;
+    int vu_total_segments = 20;
+    int seg_w = 26;
+    int seg_h = 9;
+    int seg_spacing = 3;
+    int vu_top_y = 150;
+    int vu_x1 = 675;
     int vu_x2 = 720;
-    int vu_y = 150;
 
-    // Thanh VU Trai & Phai
-    DrawRoundedBox(memDC, vu_x1, vu_y, vu_x1 + vu_w, vu_y + vu_h, RGB(18, 22, 28), c_card_bdr);
-    DrawRoundedBox(memDC, vu_x2, vu_y, vu_x2 + vu_w, vu_y + vu_h, RGB(18, 22, 28), c_card_bdr);
+    int lit_segments = (int)(cur_rms * 220.0f);
+    if (lit_segments > vu_total_segments) lit_segments = vu_total_segments;
 
-    int fill_h = (int)(cur_rms * 2800.0f);
-    if (fill_h > vu_h - 4) fill_h = vu_h - 4;
-    if (fill_h > 0) {
-        COLORREF vu_color = (fill_h > vu_h * 0.85) ? c_red : ((fill_h > vu_h * 0.6) ? c_amber : c_green);
-        HBRUSH vuBrush = CreateSolidBrush(vu_color);
-        RECT r_left  = { vu_x1 + 3, (vu_y + vu_h - 2) - fill_h, vu_x1 + vu_w - 3, vu_y + vu_h - 2 };
-        RECT r_right = { vu_x2 + 3, (vu_y + vu_h - 2) - fill_h, vu_x2 + vu_w - 3, vu_y + vu_h - 2 };
-        FillRect(memDC, &r_left, vuBrush);
-        FillRect(memDC, &r_right, vuBrush);
-        DeleteObject(vuBrush);
+    // Ve 2 cot LED rieng biet (L & R)
+    for (int s = 0; s < vu_total_segments; ++s) {
+        int seg_y = vu_top_y + (vu_total_segments - 1 - s) * (seg_h + seg_spacing);
+        
+        COLORREF seg_color_on;
+        if (s >= 16) seg_color_on = c_red;
+        else if (s >= 12) seg_color_on = c_amber;
+        else seg_color_on = c_green;
+
+        COLORREF seg_color_off = RGB(24, 30, 38);
+
+        bool is_lit = (s < lit_segments);
+        COLORREF cur_color = is_lit ? seg_color_on : seg_color_off;
+
+        DrawRoundedBox(memDC, vu_x1, seg_y, vu_x1 + seg_w, seg_y + seg_h, cur_color, cur_color, 2);
+        DrawRoundedBox(memDC, vu_x2, seg_y, vu_x2 + seg_w, seg_y + seg_h, cur_color, cur_color, 2);
     }
 
-    DrawLabel(memDC, vu_x1 + 6, vu_y + vu_h + 8, "L-IN", c_text_dim, 11, true);
-    DrawLabel(memDC, vu_x2 + 6, vu_y + vu_h + 8, "R-IN", c_text_dim, 11, true);
+    DrawLabelW(memDC, vu_x1 + 4, vu_top_y + vu_total_segments * (seg_h + seg_spacing) + 8, L"L - TRÁI", c_text_dim, 10, true);
+    DrawLabelW(memDC, vu_x2 + 4, vu_top_y + vu_total_segments * (seg_h + seg_spacing) + 8, L"R - PHẢI", c_text_dim, 10, true);
 
-    // Thong so dB & Noise Gate
+    // Thong tin dBFS & Noise Gate bang Tieng Viet
     float db = (cur_rms > 1e-5f) ? (20.0f * std::log10(cur_rms)) : -60.0f;
-    char db_buf[32];
-    sprintf(db_buf, "%5.1f DBFS", db);
-    DrawLabel(memDC, 770, 180, "INPUT LEVEL:", c_text_dim, 11, false);
-    DrawLabel(memDC, 770, 200, db_buf, c_text_wh, 14, true);
+    wchar_t db_buf[64];
+    swprintf(db_buf, 64, L"%5.1f DBFS", db);
+    DrawLabelW(memDC, 770, 160, L"MỨC ĐẦU VÀO:", c_text_dim, 11, false);
+    DrawLabelW(memDC, 770, 180, db_buf, c_text_wh, 15, true);
 
-    DrawLabel(memDC, 770, 240, "NOISE GATE:", c_text_dim, 11, false);
-    if (cur_rms > 0.006f) {
-        DrawLabel(memDC, 770, 260, "OPEN", c_green, 14, true);
+    DrawLabelW(memDC, 770, 220, L"CHỐNG ỒN (GATE):", c_text_dim, 11, false);
+    if (cur_rms > 0.005f) {
+        DrawLabelW(memDC, 770, 240, L"MỞ (THU TIẾNG)", c_green, 13, true);
     } else {
-        DrawLabel(memDC, 770, 260, "CLOSED", c_text_dim, 14, true);
+        DrawLabelW(memDC, 770, 240, L"ĐÓNG (CHẶN ỒN)", c_text_dim, 13, true);
     }
 
-    DrawLabel(memDC, 770, 300, "PROCESSING:", c_text_dim, 11, false);
-    DrawLabel(memDC, 770, 320, is_tuned ? "AUTOTUNE" : "BYPASS", is_tuned ? c_cyan : c_amber, 14, true);
+    DrawLabelW(memDC, 770, 280, L"CHẾ ĐỘ XỬ LÝ:", c_text_dim, 11, false);
+    if (is_tuned) {
+        DrawLabelW(memDC, 770, 300, L"ĐANG BẬT AUTOTUNE", c_cyan, 13, true);
+    } else {
+        DrawLabelW(memDC, 770, 300, L"TIẾNG MỘC (BYPASS)", c_amber, 13, true);
+    }
 
     // =========================================================================
-    // BAN DIEU KHIEN BEN DUOI (INTERACTIVE CONTROL DECK)
+    // 4. BAN DIEU KHIEN CHUC NANG (INTERACTIVE CONTROL DECK)
     // =========================================================================
 
-    // Nut 1: BẬT/TẮT AUTOTUNE
-    COLORREF btn1_bg = is_tuned ? RGB(0, 70, 90) : RGB(40, 45, 55);
+    // Nut 1: BẬT / TẮT AUTOTUNE
+    COLORREF btn1_bg = is_tuned ? RGB(0, 60, 80) : RGB(30, 36, 45);
     COLORREF btn1_bdr = is_tuned ? c_cyan : c_card_bdr;
-    DrawRoundedBox(memDC, g_btn_autotune.left, g_btn_autotune.top, g_btn_autotune.right, g_btn_autotune.bottom, btn1_bg, btn1_bdr);
-    DrawCenteredText(memDC, g_btn_autotune, is_tuned ? "AUTOTUNE: ON" : "AUTOTUNE: BYPASS", is_tuned ? c_cyan : c_text_dim, 14, true);
+    DrawRoundedBox(memDC, g_btn_autotune.left, g_btn_autotune.top, g_btn_autotune.right, g_btn_autotune.bottom, btn1_bg, btn1_bdr, 8);
+    DrawCenteredTextW(memDC, g_btn_autotune, is_tuned ? L"AUTOTUNE: ĐANG BẬT" : L"AUTOTUNE: TẮT (MỘC)", is_tuned ? c_cyan : c_text_dim, 13, true);
 
     // Nut 2: CHON THANG AM (SCALE)
-    DrawRoundedBox(memDC, g_btn_scale.left, g_btn_scale.top, g_btn_scale.right, g_btn_scale.bottom, c_card, c_cyan);
-    DrawCenteredText(memDC, g_btn_scale, cur_scale.name, c_text_wh, 12, true);
+    DrawRoundedBox(memDC, g_btn_scale.left, g_btn_scale.top, g_btn_scale.right, g_btn_scale.bottom, c_card, c_cyan, 8);
+    DrawCenteredTextW(memDC, g_btn_scale, cur_scale.name.c_str(), c_text_wh, 12, true);
 
-    // Nut 3: RETUNE SPEED
-    const char* speed_labels[] = { "SPEED: HARD (0 MS)", "SPEED: POP (25 MS)", "SPEED: NATURAL (50 MS)" };
-    DrawRoundedBox(memDC, g_btn_speed.left, g_btn_speed.top, g_btn_speed.right, g_btn_speed.bottom, c_card, c_amber);
-    DrawCenteredText(memDC, g_btn_speed, speed_labels[g_retune_mode.load()], c_amber, 12, true);
+    // Nut 3: TOC DO BE NOT (RETUNE SPEED)
+    const wchar_t* speed_labels[] = { 
+        L"TỐC ĐỘ: NHANH (0 MS) - RAP", 
+        L"TỐC ĐỘ: VỪA (25 MS) - POP", 
+        L"TỐC ĐỘ: TỰ NHIÊN (50 MS)" 
+    };
+    DrawRoundedBox(memDC, g_btn_speed.left, g_btn_speed.top, g_btn_speed.right, g_btn_speed.bottom, c_card, c_amber, 8);
+    DrawCenteredTextW(memDC, g_btn_speed, speed_labels[g_retune_mode.load()], c_amber, 12, true);
 
-    // Nut 4: INPUT GAIN
-    char gain_txt[32];
-    sprintf(gain_txt, "GAIN: %3.1fX", g_gain_mult.load());
-    DrawRoundedBox(memDC, g_btn_gain.left, g_btn_gain.top, g_btn_gain.right, g_btn_gain.bottom, c_card, c_card_bdr);
-    DrawCenteredText(memDC, g_btn_gain, gain_txt, c_text_wh, 13, true);
+    // Nut 4: DO NHAY MIC (GAIN)
+    wchar_t gain_txt[64];
+    swprintf(gain_txt, 64, L"ĐỘ NHẠY MIC: %3.1fX", g_gain_mult.load());
+    DrawRoundedBox(memDC, g_btn_gain.left, g_btn_gain.top, g_btn_gain.right, g_btn_gain.bottom, c_card, c_card_bdr, 8);
+    DrawCenteredTextW(memDC, g_btn_gain, gain_txt, c_text_wh, 13, true);
 
-    // Nut 5: KARAOKE ECHO
+    // Nut 5: HIỆU ỨNG VANG ECHO
     bool echo_act = g_enable_echo.load();
-    COLORREF btn5_bg = echo_act ? RGB(10, 60, 40) : RGB(26, 32, 42);
+    COLORREF btn5_bg = echo_act ? RGB(10, 50, 35) : RGB(22, 27, 34);
     COLORREF btn5_bdr = echo_act ? c_green : c_card_bdr;
-    DrawRoundedBox(memDC, g_btn_echo.left, g_btn_echo.top, g_btn_echo.right, g_btn_echo.bottom, btn5_bg, btn5_bdr);
-    DrawCenteredText(memDC, g_btn_echo, echo_act ? "ECHO: 25% (ON)" : "ECHO: OFF", echo_act ? c_green : c_text_dim, 11, true);
+    DrawRoundedBox(memDC, g_btn_echo.left, g_btn_echo.top, g_btn_echo.right, g_btn_echo.bottom, btn5_bg, btn5_bdr, 8);
+    DrawCenteredTextW(memDC, g_btn_echo, echo_act ? L"HIỆU ỨNG VANG: BẬT (25%)" : L"HIỆU ỨNG VANG: TẮT", echo_act ? c_green : c_text_dim, 11, true);
 
-    // Chi dan ben duoi
-    DrawLabel(memDC, 40, 575, "CLICK CAC NUT TREN MAN HINH DE THAY DOI CHE DO HOAC NHAN PHIM ESC DE THOAT", c_text_dim, 11, false);
+    // DONG HUONG DAN BEN DUOI
+    DrawLabelW(memDC, 40, 595, L"HƯỚNG DẪN: CLICK CHUỘT VÀO CÁC NÚT ĐỂ ĐIỀU CHỈNH | PHÍM CÁCH (SPACE): BẬT/TẮT AUTOTUNE | PHÍM ESC: THOÁT", c_text_dim, 11, false);
 
-    // Day hinh anh len man hinh (BitBlt)
+    // Day hinh anh tu bo dem len man hinh
     BitBlt(hdc, 0, 0, WIN_WIDTH, WIN_HEIGHT, memDC, 0, 0, SRCCOPY);
 
     SelectObject(memDC, oldBitmap);
@@ -662,12 +724,12 @@ void RenderGUI(HDC hdc, HWND hwnd) {
 }
 
 // ------------------------------------------------------------------------------
-// WINDOWS MESSAGE HANDLER
+// XU LY SU KIEN WINDOWS
 // ------------------------------------------------------------------------------
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_CREATE: {
-            SetTimer(hwnd, 1, 16, NULL); // 60 FPS Refresh
+            SetTimer(hwnd, 1, 16, NULL); // 60 FPS
             break;
         }
         case WM_TIMER: {
@@ -679,21 +741,21 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             int y = HIWORD(lParam);
             POINT pt = { x, y };
 
-            // Click Nut 1: Toggle AutoTune
+            // Nut 1: Toggle AutoTune
             if (PtInRect(&g_btn_autotune, pt)) {
                 g_enable_autotune.store(!g_enable_autotune.load());
             }
-            // Click Nut 2: Cycle Thang Am
+            // Nut 2: Doi Thang Am (Scale)
             else if (PtInRect(&g_btn_scale, pt)) {
                 int next_scale = (g_scale_idx.load() + 1) % (int)g_scales.size();
                 g_scale_idx.store(next_scale);
             }
-            // Click Nut 3: Cycle Retune Speed
+            // Nut 3: Doi Toc do (Speed)
             else if (PtInRect(&g_btn_speed, pt)) {
                 int next_speed = (g_retune_mode.load() + 1) % 3;
                 g_retune_mode.store(next_speed);
             }
-            // Click Nut 4: Cycle Gain
+            // Nut 4: Doi Do nhay Mic (Gain)
             else if (PtInRect(&g_btn_gain, pt)) {
                 float g = g_gain_mult.load();
                 if (g < 5.0f) g = 6.0f;
@@ -702,7 +764,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 else g = 4.0f;
                 g_gain_mult.store(g);
             }
-            // Click Nut 5: Toggle Echo
+            // Nut 5: Toggle Echo
             else if (PtInRect(&g_btn_echo, pt)) {
                 g_enable_echo.store(!g_enable_echo.load());
             }
@@ -731,7 +793,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             break;
         }
         default:
-            return DefWindowProcA(hwnd, msg, wParam, lParam);
+            return DefWindowProcW(hwnd, msg, wParam, lParam);
     }
     return 0;
 }
@@ -740,69 +802,81 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 // WINMAIN
 // ------------------------------------------------------------------------------
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    (void)hPrevInstance;
+    (void)lpCmdLine;
+
+    // Bat che do sac net DPI cao cho man hinh laptop Nitro 5
+    SetProcessDPIAware();
+
     init_scales();
 
-    // 1. Khoi tao Audio Engine miniaudio WASAPI Duplex
+    // Khoi tao Audio Engine WASAPI Duplex
     ma_device_config audioConfig = ma_device_config_init(ma_device_type_duplex);
     audioConfig.capture.format = ma_format_f32;
     audioConfig.capture.channels = CHANNELS_IN;
     audioConfig.playback.format = ma_format_f32;
     audioConfig.playback.channels = CHANNELS_OUT;
     audioConfig.sampleRate = SAMPLE_RATE;
-    audioConfig.dataCallback = audio_callback;
-    audioConfig.periodSizeInFrames = 256;
+    audioConfig.periodSizeInFrames = BUFFER_FRAMES;
+    audioConfig.dataCallback = data_callback;
 
-    ma_device audioDevice;
-    if (ma_device_init(NULL, &audioConfig, &audioDevice) != MA_SUCCESS) {
-        MessageBoxA(NULL, "Khong the khoi tao card am thanh qua Windows WASAPI!", "Loi Khoi Dong", MB_ICONERROR);
+    ma_device device;
+    ma_result res = ma_device_init(NULL, &audioConfig, &device);
+    if (res != MA_SUCCESS) {
+        MessageBoxW(NULL, L"Không thể khởi động thiết bị âm thanh WASAPI!\nVui lòng kiểm tra Micro hoặc Cáp kết nối.", L"Lỗi Âm Thanh", MB_ICONERROR);
         return -1;
     }
 
-    if (ma_device_start(&audioDevice) != MA_SUCCESS) {
-        MessageBoxA(NULL, "Khong the bat stream am thanh!", "Loi Khoi Dong", MB_ICONERROR);
-        ma_device_uninit(&audioDevice);
+    if (ma_device_start(&device) != MA_SUCCESS) {
+        ma_device_uninit(&device);
+        MessageBoxW(NULL, L"Không thể bắt đầu luồng âm thanh thời gian thực!", L"Lỗi Âm Thanh", MB_ICONERROR);
         return -1;
     }
 
-    // 2. Dang ky lop Cua so Windows Native
-    WNDCLASSEXA wc = {0};
-    wc.cbSize = sizeof(WNDCLASSEXA);
+    // Dang ky va tao cua so Win32 GUI
+    WNDCLASSEXW wc = {0};
+    wc.cbSize = sizeof(WNDCLASSEXW);
     wc.lpfnWndProc = WndProc;
     wc.hInstance = hInstance;
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-    wc.lpszClassName = "KaraTuneWindowClass";
+    wc.lpszClassName = L"KaraTuneStudioGUI";
 
-    RegisterClassExA(&wc);
+    RegisterClassExW(&wc);
 
-    // Can giua man hinh
+    // Canh giua man hinh
     int screen_w = GetSystemMetrics(SM_CXSCREEN);
     int screen_h = GetSystemMetrics(SM_CYSCREEN);
-    int pos_x = (screen_w - WIN_WIDTH) / 2;
-    int pos_y = (screen_h - WIN_HEIGHT) / 2;
+    int posX = (screen_w - WIN_WIDTH) / 2;
+    int posY = (screen_h - WIN_HEIGHT) / 2;
 
-    HWND hwnd = CreateWindowExA(
-        0,
-        "KaraTuneWindowClass",
-        "KARATUNE - PRO VOCAL ENGINE",
+    HWND hwnd = CreateWindowExW(
+        WS_EX_APPWINDOW,
+        L"KaraTuneStudioGUI",
+        L"KaraTune Pro - Bộ Xử Lý Cao Độ Giọng Hát Thời Gian Thực (WASAPI < 5.3ms)",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-        pos_x, pos_y, WIN_WIDTH, WIN_HEIGHT,
+        posX, posY, WIN_WIDTH, WIN_HEIGHT,
         NULL, NULL, hInstance, NULL
     );
+
+    if (!hwnd) {
+        ma_device_uninit(&device);
+        return -1;
+    }
 
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
 
-    // 3. Vong lap Message Pump Windows
+    // Vong lap thong diep
     MSG msg;
-    while (GetMessageA(&msg, NULL, 0, 0)) {
+    while (GetMessageW(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
-        DispatchMessageA(&msg);
+        DispatchMessageW(&msg);
     }
 
-    // 4. Don dep khi thoat
-    ma_device_stop(&audioDevice);
-    ma_device_uninit(&audioDevice);
+    // Don dep tai nguyen khi thoat
+    ma_device_stop(&device);
+    ma_device_uninit(&device);
 
     return (int)msg.wParam;
 }

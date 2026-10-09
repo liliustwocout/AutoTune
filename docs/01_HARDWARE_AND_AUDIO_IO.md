@@ -1,94 +1,110 @@
-# 01. Phân Tích Phần Cứng & Kết Nối Thiết Bị (Audio I/O)
+# 01. Phân Tích Phần Cứng Thực Tế & Hướng Dẫn Đấu Nối Âm Thanh (Audio I/O)
 
-Tài liệu này hướng dẫn cách kết nối và tối ưu dàn thiết bị hiện có tại nhà của bạn để phần mềm AutoTune hoạt động với **độ trễ siêu thấp (Low Latency)** và **chất lượng âm thanh tốt nhất**.
-
----
-
-## 1. Phân tích hiện trạng thiết bị của bạn
-
-| Thiết bị | Đặc điểm kỹ thuật | Thách thức kỹ thuật | Giải pháp xử lý |
-|:---|:---|:---|:---|
-| **Laptop Acer Nitro 5** | - Windows 11/10, CPU mạnh (Intel Core i5/i7 hoặc Ryzen 5/7)<br>- Card âm thanh tích hợp: Realtek HD Audio<br>- Cổng âm thanh: 1 jack 3.5mm kết hợp (Combo Audio TRRS 4 khấc) | Driver âm thanh mặc định của Windows (MME/DirectSound) có độ trễ cao (50ms - 150ms). | Sử dụng driver **ASIO4ALL** hoặc **WASAPI Exclusive** để ép buffer xuống 128 - 256 samples (độ trễ < 10ms). |
-| **Micro dây karaoke** | - Thường là Mic Dynamic (đầu jack 6.5mm mono hoặc chân XLR)<br>- Tín hiệu đầu ra rất nhỏ (mức millivolt -55dBV), cần khuếch đại (Pre-amp). | Cắm trực tiếp vào laptop qua jack chuyển 6.5mm -> 3.5mm thường bị tiếng nhỏ, rè hoặc laptop không nhận diện được chân mic TRRS. | Cần đầu chia cáp Y-Splitter TRRS hoặc sử dụng USB Audio Box/Vang cơ. |
-| **Bộ loa karaoke** | - Loa kéo, loa active hoặc ampli gia đình.<br>- Cổng nhận tín hiệu: AUX 3.5mm, RCA (hoa sen), Bluetooth, Quang học. | Nếu kết nối qua **Bluetooth** sẽ bị trễ từ 150ms - 300ms, hoàn toàn không thể hát được AutoTune live. | **Bắt buộc** nối dây có dây (3.5mm AUX hoặc jack hoa sen RCA) từ laptop ra loa. |
+Tài liệu này được cập nhật chính xác theo **dàn thiết bị âm thanh thực tế tại nhà của bạn** (đã xác thực qua hình ảnh hệ thống), hướng dẫn những phụ kiện cần mua và cách cắm dây chuẩn xác nhất để vừa hát karaoke hay, vừa tận dụng được phần mềm AutoTune thời gian thực.
 
 ---
 
-## 2. Sơ đồ đấu nối dây chuẩn (Hardware Wiring)
+## 1. Danh sách thiết bị hiện có tại nhà của bạn
 
-### Phương án A: Tận dụng 100% thiết bị có sẵn (Chi phí 0đ - 50k)
-Dành cho việc test thử nghiệm ban đầu bằng cổng 3.5mm của Acer Nitro 5:
+| STT | Thiết bị | Tên thiết bị / Model | Vai trò trong hệ thống |
+|:---:|:---|:---|:---|
+| 1 | **Máy tính xử lý** | Laptop Acer Nitro 5 | Chạy phần mềm `karatune.exe` (AutoTune bẻ nốt thời gian thực) và phát nhạc beat karaoke Youtube. |
+| 2 | **Bộ tiền khuếch đại (Mixer)** | **Vang cơ Calidona Audio P828** *(Stereo Mixing Digital Echo)* | Nhận tín hiệu Micro, hòa trộn tiếng nhạc, xử lý hiệu ứng vang nhại (Digital Echo / Repeat / Delay). |
+| 3 | **Cục đẩy công suất** | **YAMAHA P7000S** *(Power Amplifier)* | Khuếch đại công suất cực lớn để kéo dàn loa ngoài. |
+| 4 | **Hệ thống loa chính** | **Cặp loa JBL gia đình** | Phát âm thanh karaoke với công suất mạnh mẽ, âm bass uy lực và độ nhạy cao. |
+| 5 | **Micro thu âm** | **Micro dây karaoke (Jack 6.5mm to)** | Micro dynamic có dây, độ bền cao, chống hú tốt. |
+
+---
+
+## 2. Bạn cần mua thêm những gì?
+
+Tùy vào nhu cầu hát của bạn, có 2 phương án đầu tư:
+
+### Phương án A: Muốn hát AutoTune thời gian thực chuyên nghiệp nhất (Khuyên dùng)
+*Tổng chi phí: ~320.000đ*
+
+| Phụ kiện cần mua | Tác dụng | Giá tham khảo | Link mua tham khảo |
+|:---|:---|:---:|:---:|
+| **1. Soundcard USB (K300 hoặc XOX K10)** | - Cắm mic dây trực tiếp (chân 6.5mm có sẵn).<br>- Có núm vặn to nhỏ Gain mic, Echo, Bass, Treble bằng tay.<br>- Kết nối USB với Laptop làm card thu âm không trễ.<br>- Có sẵn nút AutoTune cứng ăn liền. | ~280.000đ | [Soundcard K300 Shopee](https://shopee.vn/search?keyword=soundcard%20k300) / [XOX K10 Shopee](https://shopee.vn/search?keyword=soundcard%20xox%20k10) |
+| **2. Dây 3.5mm ra 2 đầu hoa sen (RCA)** | Dẫn âm thanh từ cổng OUT của Soundcard vào cổng TAPE/VIDEO mặt sau Vang cơ Calidona. | ~35.000đ | [Dây 3.5 ra RCA hoa sen](https://shopee.vn/search?keyword=day%203.5%20ra%20hoa%20sen%20rca) |
+
+---
+
+### Phương án B: Tận dụng trực tiếp Laptop không mua Soundcard (Tiết kiệm nhất)
+*Tổng chi phí: ~90.000đ*
+
+| Phụ kiện cần mua | Tác dụng | Giá tham khảo | Link mua tham khảo |
+|:---|:---|:---:|:---:|
+| **1. Cáp chia tai nghe & mic 3.5mm (Ugreen AV140)** | Cắm vào jack 3.5mm của Nitro 5 để tách riêng 1 cổng Mic In và 1 cổng Loa Out. | ~65.000đ | [Cáp chia Ugreen AV140](https://shopee.vn/search?keyword=ugreen%20av140) |
+| **2. Đầu chuyển Jack 6.5mm (cái) sang 3.5mm (đực)** | Cắm chân to 6.5mm của mic dây vào lỗ Micro 3.5mm của cáp chia. | ~20.000đ | [Jack 6.5 cái sang 3.5 đực](https://shopee.vn/search?keyword=jack%206.5%20cai%20sang%203.5%20duc) |
+| **3. Dây 3.5mm ra 2 đầu hoa sen (RCA)** | Dẫn tiếng từ cổng Loa của cáp chia vào mặt sau Vang cơ Calidona. | ~35.000đ | [Dây 3.5 ra RCA hoa sen](https://shopee.vn/search?keyword=day%203.5%20ra%20hoa%20sen%20rca) |
+
+---
+
+### Phương án C: Hát Karaoke truyền thống qua Dàn máy (Không cần AutoTune máy tính)
+*Tổng chi phí: ~30.000đ*
+- Chỉ cần mua duy nhất **1 sợi Dây 3.5mm ra 2 đầu hoa sen (RCA)** để lấy nhạc Youtube từ laptop Nitro 5 vào dàn loa JBL. Mic dây cắm trực tiếp vào Vang cơ Calidona như bình thường.
+
+---
+
+## 3. Sơ đồ đấu nối chi tiết (Hardware Wiring Diagrams)
+
+### SƠ ĐỒ 1: Hát AutoTune với Soundcard USB (Chuẩn nhất)
 
 ```
-[Micro Dây (Đầu 6.5mm)]
-        │
-        ▼ (Đầu chuyển 6.5mm sang 3.5mm)
-        │
-        ▼
-[Cáp gộp Y-Splitter TRRS (Đầu đực 4 khấc cắm vào Laptop, đầu cái chia 1 Mic / 1 Tai nghe)]
-   │               │
-   │ (Cổng Mic In) └─── (Cổng Audio Out)
-   │                           │
-   ▼                           ▼ (Dây 3.5mm sang 3.5mm hoặc 3.5mm sang RCA Hoa Sen)
-[Cổng 3.5mm Nitro 5]        [Cổng AUX IN trên Loa Karaoke]
+[Micro Dây (Chân 6.5mm)]
+       │
+       ▼ (Cắm vào cổng MIC 1 trên mặt trước Soundcard)
+[SOUNDCARD USB (K300 / XOX K10)] ◄────── (Dây cáp USB cắm vào cổng USB của Laptop Nitro 5)
+       │                                     Laptop chạy phần mềm 'karatune.exe'
+       │
+       ▼ (Cắm vào cổng OUT 3.5mm của Soundcard)
+[Dây 3.5mm ra 2 đầu Hoa Sen (RCA)]
+       │
+       ▼ (Cắm vào cổng TAPE hoặc VIDEO ở mặt sau)
+[VANG CƠ Calidona P828] ──(Nhấn nút chọn cổng TAPE/VIDEO ở mặt trước)
+       │
+       ▼ (Dây Canon XLR hoặc Hoa Sen từ cổng Out của Vang cơ)
+[CỤC ĐẨY CÔNG SUẤT Yamaha P7000S]
+       │
+       ▼ (Dây loa Speakon)
+[CẶP LOA CHÍNH JBL]
 ```
-
-> [!WARNING]
-> Cổng 3.5mm trên laptop Nitro 5 là loại cổng combo tai nghe + mic chuẩn CTIA. Bạn **không thể cắm trực tiếp đầu 6.5mm chuyển sang 3.5mm vào máy** vì máy sẽ hiểu nhầm là bạn cắm tai nghe và không thu được tiếng mic. Bắt buộc phải có **Cáp chia Y-Splitter TRRS 4 chấu** (giá khoảng 20.000 - 40.000đ).
 
 ---
 
-### Phương án B: Tối ưu chuyên nghiệp (Khuyên dùng - Chi phí 300k - 800k)
-Để hát karaoke lâu dài không bị rè, mic bắt nhạy và âm thanh dày ấm:
+### SƠ ĐỒ 2: Hát AutoTune trực tiếp qua Laptop (Dùng Cáp chia Y-Splitter)
 
 ```
-[Micro Dây] ─────────► [USB Audio Interface / Soundcard mini / Vang cơ có cổng USB]
-                                     │
-                             (Cáp USB kết nối)
-                                     │
-                                     ▼
-                            [Laptop Acer Nitro 5]
-                           (Xử lý AutoTune real-time)
-                                     │
-                                     ▼
-                      [Cổng Out của Soundcard / Laptop]
-                                     │ (Dây tín hiệu)
-                                     ▼
-                            [Loa Karaoke Gia Đình]
+[Micro Dây] ──► [Đầu chuyển 6.5mm cái sang 3.5mm đực]
+                       │
+                       ▼ (Cắm vào lỗ MICRO trên cáp chia)
+[Cáp Chia Ugreen AV140] ◄──────── Cắm đầu đực 3.5mm vào Laptop Nitro 5
+       │ (Lỗ TAI NGHE / LOA trên cáp chia)
+       ▼
+[Dây 3.5mm ra 2 đầu Hoa Sen RCA]
+       │
+       ▼ (Cắm vào cổng TAPE hoặc VIDEO ở mặt sau)
+[VANG CƠ Calidona P828]
+       │
+       ▼
+[CỤC ĐẨY YAMAHA P7000S]
+       │
+       ▼
+[CẶP LOA JBL]
 ```
-- Các thiết bị hỗ trợ cực tốt: *Vang cơ gia đình có USB Audio*, *Soundcard K10 / K300 / H9*, hoặc *Behringer U-Phoria UM2*.
 
 ---
 
-## 3. Khắc phục bài toán Độ trễ (Audio Latency)
+## 4. Hướng dẫn các nút gạt & cân chỉnh trên dàn máy
 
-### Vì sao độ trễ lại quyết định sự thành bại của AutoTune?
-- **> 30ms:** Người hát nghe tiếng mình dội lại chậm hơn khẩu hình miệng, gây phản xạ ức chế não bộ (hiện tượng nói lắp, lệch nhịp).
-- **15ms - 25ms:** Cảm giác hát hơi nặng, giọng không tự nhiên.
-- **< 10ms (Chuẩn phòng thu):** Giọng hát đồng bộ hoàn hảo với tai nghe và loa, người hát cảm nhận tiếng AutoTune tức thì.
-
-### Cấu hình Driver âm thanh trên Windows / Acer Nitro 5
-1. **Cài đặt ASIO4ALL:**
-   - Tải và cài đặt miễn phí từ [asio4all.org](https://www.asio4all.org/).
-   - Thiết lập cấu hình:
-     - **Buffer Size:** `128 Samples` (hoặc `256 Samples` nếu máy có hiện tượng lẹt xẹt xé tiếng).
-     - Với sample rate 48.000Hz:
-       $$\text{Latency} = \frac{128}{48000} \approx 2.67\text{ ms (Độ trễ xử lý buffer)}$$
-2. **Tắt các bộ xử lý rác của Windows và Nitro 5:**
-   - Acer Nitro 5 thường cài sẵn phần mềm **DTS:X Ultra** hoặc **Acer TrueHarmony** -> **Cần tắt chế độ này** khi hát karaoke vì nó chèn thêm DSP phụ gây tăng độ trễ lên thêm 30-50ms.
-   - Vào `Sound Control Panel` -> Click đúp vào Loa/Micro -> Tab `Enhancements` -> Tích chọn `Disable all sound effects`.
-   - Tab `Advanced`: Đặt định dạng mặc định là `24 bit, 48000 Hz (Studio Quality)`.
-
----
-
-## 4. Giải pháp chống hú rít (Acoustic Feedback Prevention)
-
-Khi hát karaoke qua máy tính và phát ra loa công suất lớn trong phòng kín, âm thanh từ loa sẽ lọt ngược lại vào micro, tạo vòng lặp vô hạn gây tiếng **hú rít (feedback loop)**.
-
-1. **Vị trí bố trí vật lý:**
-   - Người cầm micro luôn đứng **phía sau hoặc ngang hàng** với mặt phẳng loa. Tuyệt đối không chĩa đầu micro thẳng vào màng loa.
-   - Khoảng cách tối thiểu từ mic tới loa: **2.5m - 3m**.
-2. **Bộ lọc trên phần mềm:**
-   - **Noise Gate:** Tự động ngắt tín hiệu khi người dùng ngừng hát (khi mức âm lượng dưới ngưỡng threshold -45dB).
-   - **High-pass Filter (Low-cut):** Cắt bỏ dải tần siêu trầm dưới 80Hz (tiếng va chạm tay vào mic, tiếng rung sàn).
-   - **Notch Filter / Feedback Suppressor:** Tự động phát hiện đỉnh tần số nhọn có xu hướng hú (thường ở dải 2.5kHz - 6kHz) và hạ âm lượng tần số đó xuống 3-6dB.
+1. **Trên Vang cơ Calidona Audio P828:**
+   - **Nút chọn nguồn (SELECT):** Nhấn nhả nút **TAPE / VIDEO** ở mặt trước cho đúng với cổng bạn cắm dây hoa sen ở mặt sau.
+   - **Music Control:** Vặn nút `VOL` ở mức 40% - 50%, `LOW` (Bass) ở hướng 12h, `MID` hướng 11h, `HIGH` (Treble) hướng 1h để nhạc sáng rõ lời.
+   - **Echo Control:** Nếu bạn đã bật AutoTune trên máy tính, hãy để `ECHO VOL` ở mức vừa phải (hướng 10h - 11h) để không bị nhại quá nhiều làm mờ hiệu ứng bẻ nốt.
+2. **Trên Cục đẩy Yamaha P7000S:**
+   - Vặn 2 núm volume kênh A và kênh B ở mức **hướng 12h đến 2h** (tùy độ to của phòng khách).
+   - Đảm bảo đèn `PROTECTION` tắt và đèn `POWER` màu xanh sáng.
+3. **Trên phần mềm `karatune.exe`:**
+   - Mở phần mềm lên, chọn đúng Soundcard USB hoặc Micro Realtek.
+   - Khi cất tiếng hát, âm thanh sẽ đi qua chuỗi AutoTune bẻ nốt mượt mà, truyền vào Vang cơ Calidona, khuếch đại qua Cục đẩy Yamaha và bùng nổ trên cặp loa JBL!

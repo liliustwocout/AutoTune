@@ -46,8 +46,11 @@ Nhà bạn đã có **Màn hình Tivi kết nối trực tiếp Youtube**, đi�
 
 ## 3. Sơ đồ đấu nối chi tiết (Tiết kiệm nhất & Khuyên dùng)
 
+![Sơ đồ đấu nối Karaoke AutoTune](images/karaoke_wiring_diagram.jpg)
 
-```
+### Chi tiết cách cắm Jack Hoa Sen (RCA Trắng / Đỏ):
+![Chi tiết cắm Jack Hoa Sen RCA](images/rca_cable_detail.jpg)
+
 [SMART TIVI (Phát Youtube Beat)]
        │
        ▼ (Dây Optical / Bluetooth hoặc Dây hoa sen RCA)

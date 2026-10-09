@@ -35,7 +35,7 @@ std::vector<ScaleDef> g_scales;
 std::atomic<int> g_scale_idx(0);
 std::atomic<bool> g_enable_autotune(true);
 std::atomic<int> g_retune_mode(0); // 0: Nhanh (0ms), 1: Vua (25ms), 2: Tu nhien (50ms)
-std::atomic<float> g_gain_mult(6.0f);
+std::atomic<float> g_gain_mult(8.0f);
 std::atomic<bool> g_enable_echo(false);
 
 // Bien telemetry giao tiep Audio Thread -> GUI Thread
@@ -203,89 +203,147 @@ public:
     }
 };
 
-class CppPitchDetector {
+// ------------------------------------------------------------------------------
+// THUAT TOAN YIN PITCH DETECTION CHUYEN NGHIEP (TRIET TIEU 100% NHAY QUANG & GIAT CUC)
+// ------------------------------------------------------------------------------
+class YINPitchDetector {
 public:
     int sr;
-    int history_len;
-    std::vector<float> history;
-    float last_pitch;
+    int win_size;    // Cua so tich phan W = 512 mau (~10.7ms)
+    int max_tau;     // Chu ky lon nhat (65 Hz -> ~738 mau)
+    int min_tau;     // Chu ky nho nhat (850 Hz -> ~56 mau)
+    int buf_len;     // Bo nho dem cuon = 512 + 738 + 64 = 1314 mau
+    std::vector<float> buffer;
+    float last_valid_pitch;
     int hold_frames;
+    bool is_gate_open;
 
-    CppPitchDetector(int sample_rate = 48000, int len = 1024) 
-        : sr(sample_rate), history_len(len), last_pitch(0.0f), hold_frames(0) {
-        history.assign(history_len, 0.0f);
+    YINPitchDetector(int sample_rate = 48000) 
+        : sr(sample_rate), win_size(512), last_valid_pitch(0.0f), hold_frames(0), is_gate_open(false) {
+        max_tau = sr / 65;
+        min_tau = sr / 850;
+        buf_len = win_size + max_tau + 64;
+        buffer.assign(buf_len, 0.0f);
     }
 
     float process(const float* chunk, int frame_count, float& out_rms) {
-        if (frame_count < history_len) {
-            std::copy(history.begin() + frame_count, history.end(), history.begin());
-            std::copy(chunk, chunk + frame_count, history.end() - frame_count);
+        // Cuon bo nho dem
+        if (frame_count < buf_len) {
+            std::copy(buffer.begin() + frame_count, buffer.end(), buffer.begin());
+            std::copy(chunk, chunk + frame_count, buffer.end() - frame_count);
         }
 
+        // Tinh RMS tren cac mau moi nhat
         float sum_sq = 0.0f;
-        for (int i = 0; i < history_len; ++i) {
-            sum_sq += history[i] * history[i];
+        for (int i = buf_len - win_size; i < buf_len; ++i) {
+            sum_sq += buffer[i] * buffer[i];
         }
-        out_rms = std::sqrt(sum_sq / history_len);
+        out_rms = std::sqrt(sum_sq / win_size);
 
-        if (out_rms < 0.005f) {
-            last_pitch = 0.0f;
-            hold_frames = 0;
+        // Schmitt Trigger Hysteresis (Mo cong o -54dBFS, giu cong toi -62dBFS)
+        // Chon loc tieng tho, tieng go ban phim, khong bi ngat nhap nhay
+        if (!is_gate_open) {
+            if (out_rms > 0.0020f) is_gate_open = true;
+        } else {
+            if (out_rms < 0.0008f) is_gate_open = false;
+        }
+
+        if (!is_gate_open) {
+            if (hold_frames > 0) {
+                hold_frames--;
+                return last_valid_pitch;
+            }
+            last_valid_pitch = 0.0f;
             return 0.0f;
         }
 
-        int min_period = sr / 850;
-        int max_period = sr / 65;
-
-        float max_corr = -1e9f;
-        int best_period = -1;
-        float corr_0 = sum_sq;
-
-        if (corr_0 <= 1e-7f) return 0.0f;
-
-        std::vector<float> corr(max_period + 2, 0.0f);
-        for (int tau = min_period - 1; tau <= max_period + 1; ++tau) {
-            float sum = 0.0f;
-            for (int j = 0; j < history_len - tau; ++j) {
-                sum += history[j] * history[j + tau];
+        // BƯỚC 1: Ham sai phan YIN d(tau) = sum( (x[j] - x[j+tau])^2 )
+        std::vector<float> d(max_tau + 1, 0.0f);
+        const float* x = buffer.data() + (buf_len - win_size - max_tau);
+        for (int tau = min_tau; tau <= max_tau; ++tau) {
+            float diff_sum = 0.0f;
+            for (int j = 0; j < win_size; ++j) {
+                float diff = x[j] - x[j + tau];
+                diff_sum += diff * diff;
             }
-            corr[tau] = sum;
-            if (tau >= min_period && tau <= max_period) {
-                if (sum > max_corr) {
-                    max_corr = sum;
-                    best_period = tau;
-                }
+            d[tau] = diff_sum;
+        }
+
+        // BƯỚC 2: Chuan hoa trung binh luy tien CMNDF d'(tau)
+        std::vector<float> cmndf(max_tau + 1, 1.0f);
+        float running_sum = 0.0f;
+        for (int tau = 1; tau <= max_tau; ++tau) {
+            running_sum += d[tau];
+            if (running_sum > 1e-6f) {
+                cmndf[tau] = d[tau] / (running_sum / (float)tau);
+            } else {
+                cmndf[tau] = 1.0f;
             }
         }
 
-        if (best_period > 0 && max_corr > 0.28f * corr_0) {
-            float a = corr[best_period - 1];
-            float b = corr[best_period];
-            float c = corr[best_period + 1];
-            float denom = 2.0f * (2.0f * b - a - c);
+        // BƯỚC 3: Nguong tuyet doi - Chon cuc tieu DAU TIEN duoi nguong 0.20
+        // (Khoa chat tan so goc, loai bo 100% loi nhay quang / subharmonic)
+        const float threshold = 0.20f;
+        int tau_best = -1;
+        for (int tau = min_tau; tau < max_tau; ++tau) {
+            if (cmndf[tau] < threshold) {
+                while (tau + 1 < max_tau && cmndf[tau + 1] < cmndf[tau]) {
+                    tau++;
+                }
+                tau_best = tau;
+                break;
+            }
+        }
+
+        // Neu khong co diem duoi 0.20, tim cuc tieu toan cuc trong tam kiem soat
+        if (tau_best == -1) {
+            float min_val = 1e9f;
+            int min_idx = -1;
+            for (int tau = min_tau; tau < max_tau; ++tau) {
+                if (cmndf[tau] < min_val) {
+                    min_val = cmndf[tau];
+                    min_idx = tau;
+                }
+            }
+            if (min_val < 0.38f) {
+                tau_best = min_idx;
+            }
+        }
+
+        if (tau_best >= min_tau && tau_best <= max_tau) {
+            // BƯỚC 4: Noi suy Parabol de lay chu ky chinh xac duoi mau (Sub-sample)
+            float alpha = cmndf[tau_best - 1];
+            float beta  = cmndf[tau_best];
+            float gamma = (tau_best + 1 <= max_tau) ? cmndf[tau_best + 1] : beta;
+            float denom = 2.0f * (2.0f * beta - alpha - gamma);
             float delta = 0.0f;
             if (std::abs(denom) > 1e-6f) {
-                delta = (c - a) / denom;
+                delta = (gamma - alpha) / denom;
                 if (delta > 0.5f) delta = 0.5f;
                 if (delta < -0.5f) delta = -0.5f;
             }
-            float refined_period = (float)best_period + delta;
-            if (refined_period > 1.0f) {
-                float freq = (float)sr / refined_period;
+            float period = (float)tau_best + delta;
+            if (period > 1.0f) {
+                float freq = (float)sr / period;
                 if (freq >= 65.0f && freq <= 850.0f) {
-                    last_pitch = freq;
-                    hold_frames = 10;
+                    // Lam min cao do giua cac khung hinh ke tiep
+                    if (last_valid_pitch > 50.0f && std::abs(freq - last_valid_pitch) / last_valid_pitch < 0.08f) {
+                        freq = 0.80f * freq + 0.20f * last_valid_pitch;
+                    }
+                    last_valid_pitch = freq;
+                    hold_frames = 16; // Duy tri cao do ~85ms neu tin hieu hut hoi nhe
                     return freq;
                 }
             }
         }
 
-        if (hold_frames > 0 && last_pitch > 0.0f) {
+        // Pitch Hold: Giu am neu nguoi hat ngan dai hoac luyen hoi
+        if (hold_frames > 0 && last_valid_pitch > 0.0f) {
             hold_frames--;
-            return last_pitch;
+            return last_valid_pitch;
         }
 
-        last_pitch = 0.0f;
+        last_valid_pitch = 0.0f;
         return 0.0f;
     }
 };
@@ -293,7 +351,7 @@ public:
 // ------------------------------------------------------------------------------
 // TRANG THAI AUDIO TOAN CUC
 // ------------------------------------------------------------------------------
-CppPitchDetector g_detector(SAMPLE_RATE, 1024);
+YINPitchDetector g_detector(SAMPLE_RATE);
 CppPitchShifter g_shifter(SAMPLE_RATE, 40.0f);
 std::vector<float> g_boosted_buf;
 std::vector<float> g_tuned_buf;
@@ -323,7 +381,7 @@ void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uin
     float cent_diff = 0.0f;
     float target_ratio = 1.0f;
 
-    if (detected_pitch > 20.0f && rms > 0.005f) {
+    if (detected_pitch > 50.0f) {
         int s_idx = g_scale_idx.load();
         if (s_idx >= 0 && s_idx < (int)g_scales.size()) {
             const ScaleDef& sc = g_scales[s_idx];
@@ -354,7 +412,8 @@ void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uin
         }
     }
 
-    float smooth_k = (g_retune_mode.load() == 0) ? 0.40f : 0.75f;
+    // Lam tron chuyen dong cua ratio de tranh tieng giat / rach pha
+    float smooth_k = (g_retune_mode.load() == 0) ? 0.35f : 0.70f;
     g_smoothed_ratio = smooth_k * g_smoothed_ratio + (1.0f - smooth_k) * target_ratio;
 
     if (g_enable_autotune.load()) {
@@ -500,10 +559,10 @@ void RenderGUI(HDC hdc, HWND hwnd) {
     const ScaleDef& cur_scale = g_scales[scale_id];
 
     // Cap nhat bo nho dem song am thanh
-    g_pitch_history[g_pitch_hist_head] = (f0 > 20.0f) ? f0 : 0.0f;
+    g_pitch_history[g_pitch_hist_head] = (f0 > 50.0f) ? f0 : 0.0f;
     g_pitch_hist_head = (g_pitch_hist_head + 1) % PITCH_HISTORY_LEN;
 
-    if (f0 > 20.0f && note_idx >= 0 && note_idx < (int)cur_scale.names.size()) {
+    if (f0 > 50.0f && note_idx >= 0 && note_idx < (int)cur_scale.names.size()) {
         std::string note_str = cur_scale.names[note_idx];
         std::wstring note_wstr(note_str.begin(), note_str.end());
 
@@ -598,8 +657,8 @@ void RenderGUI(HDC hdc, HWND hwnd) {
         float p = g_pitch_history[idx];
         int px = graph_x + 6 + (int)((float)i / (float)PITCH_HISTORY_LEN * (graph_w - 12));
         
-        if (p > 60.0f) {
-            float norm = (p - 100.0f) / 500.0f;
+        if (p > 50.0f) {
+            float norm = (p - 65.0f) / 550.0f;
             if (norm < 0.0f) norm = 0.0f;
             if (norm > 1.0f) norm = 1.0f;
             int py = (graph_y + graph_h - 12) - (int)(norm * (graph_h - 30));
@@ -758,9 +817,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             // Nut 4: Doi Do nhay Mic (Gain)
             else if (PtInRect(&g_btn_gain, pt)) {
                 float g = g_gain_mult.load();
-                if (g < 5.0f) g = 6.0f;
-                else if (g < 7.0f) g = 8.0f;
-                else if (g < 9.0f) g = 10.0f;
+                if (g < 6.0f) g = 8.0f;
+                else if (g < 10.0f) g = 12.0f;
+                else if (g < 14.0f) g = 16.0f;
                 else g = 4.0f;
                 g_gain_mult.store(g);
             }

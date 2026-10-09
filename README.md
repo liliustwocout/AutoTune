@@ -36,27 +36,29 @@ AutoTune/
 
 ## 3. Hướng dẫn cài đặt & Chạy ứng dụng
 
-### Cách 1: Chạy bản C++ Native (Tối ưu nhất - Siêu mượt, không trễ)
+### Cách 1: Chạy bản C++ Native GUI (Giao diện Studio Full Tiếng Việt, độ trễ <5.3ms)
 Yêu cầu: Đã cài `g++` (MinGW / MSYS2 UCRT64).
 
 1. **Biên dịch:**
    ```bash
-   g++ -O3 -mavx2 karatune.cpp -o karatune.exe -lole32
+   g++ -O3 -mavx2 -finput-charset=UTF-8 karatune.cpp -o karatune.exe -lgdi32 -luser32 -lole32 -lcomctl32 -mwindows
    ```
 2. **Khởi chạy:**
+   Nhấp đúp chuột vào file `karatune.exe` hoặc chạy qua dòng lệnh:
    ```bash
    .\karatune.exe
    ```
 
-### Cách 2: Chạy bản Python Prototype (Thử nghiệm nhanh)
-Yêu cầu: Python 3.10+
-```bash
-pip install sounddevice numpy scipy
-python prototype_autotune.py
-```
+### Tính năng nổi bật trên giao diện KaraTune Pro:
+- **Full Tiếng Việt có dấu:** Chuẩn font Segoe UI sắc nét, hỗ trợ màn hình High-DPI.
+- **Thuật toán YIN Pitch Detection:** Triệt tiêu hoàn toàn lỗi nhảy quãng/subharmonic, khóa chặt tần số gốc của giọng hát.
+- **Cơ chế Pitch Hold & Schmitt Trigger:** Duy trì nốt ngân ~85ms mượt mà, không bị giật cục hay chớp nhả âm lượng.
+- **Đồng hồ LED VU Meters & Kim Cent:** Theo dõi mức âm lượng L/R và độ sai lệch nốt thời gian thực.
+- **Điều khiển trực quan:** Click chuột đổi nhanh AutoTune ON/Bypass, Thang âm (Đô trưởng, La thứ, 12 Bán âm Chromatic...), Tốc độ (Nhanh 0ms, Vừa 25ms, Tự nhiên 50ms), Độ nhạy Mic (4x-16x) và Vang Echo.
 
 ---
 
-## 4. Hướng dẫn phối ghép dàn thiết bị gia đình thực tế
-Chi tiết cách chọn Soundcard K300/XOX K10, dây 3.5 ra RCA hoa sen và cách cắm vào Vang cơ Calidona P828 + Cục đẩy Yamaha P7000S xem tại:
+## 4. Hướng dẫn phối ghép dàn thiết bị gia đình thực tế & Cẩm nang âm thanh
+Chi tiết sơ đồ cắm dây giữa Smart TV / Laptop với Vang cơ Calidona P828 + Cục đẩy Yamaha P7000S + Loa JBL, cùng cách tắt Audio Enhancements trên Windows để tiếng ngân không bị to nhỏ, xem tại:
 👉 [docs/01_HARDWARE_AND_AUDIO_IO.md](file:///g:/Project/AutoTune/docs/01_HARDWARE_AND_AUDIO_IO.md)
+

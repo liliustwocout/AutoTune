@@ -89,5 +89,54 @@ Nhà bạn đã có **Màn hình Tivi kết nối trực tiếp Youtube**, đi�
    - Vặn 2 núm volume kênh A và kênh B ở mức **hướng 12h đến 2h** (tùy độ to của phòng khách).
    - Đảm bảo đèn `PROTECTION` tắt và đèn `POWER` màu xanh sáng.
 3. **Trên phần mềm `karatune.exe`:**
-   - Mở phần mềm lên, chọn đúng Soundcard USB hoặc Micro Realtek.
+   - Mở phần mềm lên, chọn chế độ Thang âm và Tốc độ phù hợp.
    - Khi cất tiếng hát, âm thanh sẽ đi qua chuỗi AutoTune bẻ nốt mượt mà, truyền vào Vang cơ Calidona, khuếch đại qua Cục đẩy Yamaha và bùng nổ trên cặp loa JBL!
+
+---
+
+## 5. Cẩm nang tối ưu âm thanh & Khắc phục lỗi thường gặp khi hát thực tế
+
+### A. Khắc phục lỗi âm lượng bị dập dềnh "to nhỏ to nhỏ" khi ngân giọng
+- **Nguyên nhân:** Windows 11 mặc định kích hoạt tính năng **Audio Enhancements (Lọc ồn AI) và AGC (Tự động tăng giảm âm lượng)**. Khi bạn ngân một hơi dài, Windows tưởng là tiếng ồn máy quạt nên tự bóp nhỏ âm lượng xuống, sau đó lại tự kéo to lên tạo cảm giác bị "bơm thụt / thở âm".
+- **Cách xử lý triệt để (Tắt Audio Enhancements):**
+  1. Chuột phải vào biểu tượng **Loa** ở góc dưới cùng bên phải màn hình $\rightarrow$ chọn **Sound settings (Cài đặt âm thanh)**.
+  2. Cuộn xuống phần **Input (Đầu vào)** $\rightarrow$ click vào thiết bị micro đang dùng (ví dụ: *Microphone Array* hoặc *Microphone Realtek*).
+  3. Tìm đến dòng **Audio enhancements (Cải thiện âm thanh)** $\rightarrow$ chuyển sang **Off (Tắt)**.
+  4. Lúc này mic sẽ thu mộc nguyên bản, tiếng ngân sẽ đều tăm tắp, không bị to nhỏ thất thường nữa.
+
+---
+
+### B. Khắc phục cảm giác giọng bị "Robot điện tử"
+- **Nguyên nhân:** Nút **TỐC ĐỘ** trên giao diện đang để ở mức **`NHANH (0 MS) - RAP`**. Tốc độ 0ms (Hard Tune) là chế độ cố tình bẻ nốt giật gấp kiểu ca sĩ T-Pain hay rapper Hieuthuhai, nó triệt tiêu toàn bộ độ rung tự nhiên của cổ họng người.
+- **Cách chỉnh để giọng người thật tự nhiên 100%:**
+  - Click vào nút tốc độ để chuyển sang: **`TỐC ĐỘ: TỰ NHIÊN (50 MS)`** (hoặc `TỐC ĐỘ: VỪA (25 MS) - POP`).
+  - Ở mức 50ms, phần mềm giữ nguyên 100% độ luyến láy và rung giọng thật của bạn, chỉ nắn các nốt bị phô/lệch tông về nốt chuẩn một cách êm ái, biến mất hoàn toàn cảm giác robot!
+
+---
+
+### C. Sự khác biệt giữa Mic Laptop và Micro Dây Karaoke Thật
+- **Mic Laptop (Màng thu 2mm Omni):** Thu đa hướng 360 độ từ khắp phòng, thu cả tiếng quạt gió máy tính Nitro 5 và tiếng ồn tường, dải tần hẹp, âm thanh mỏng và khô.
+- **Micro Dây Thật (Củ Dynamic 30mm Cardioid):** Chỉ bắt âm thanh ở cự ly 1 – 3cm ngay sát miệng. Tiếng ồn phòng và tiếng quạt bị màng rung vật lý triệt tiêu đến 85%. Tiếng hát có dải trầm ấm, dày dặn, áp lực âm thanh mạnh.
+- **Lưu ý:** Khi cắm Mic dây thật vào máy tính, **tuyệt đối KHÔNG BẬT Audio Enhancements của Windows** vì mic thật đã tự chống ồn vật lý rất tốt, bật lọc AI của Windows sẽ làm méo giọng và tăng độ trễ (delay).
+
+---
+
+### D. Hướng dẫn chọn Tông bài hát (Key / Scale) thông minh
+1. **Chế độ tự động toàn năng: `12 BÁN ÂM (CHROMATIC)` (Khuyên dùng):**
+   - Chứa đầy đủ 12 nửa cung (C, C#, D, D#, E, F, F#, G, G#, A, A#, B).
+   - Hát bất kỳ bài nào, vào bất kỳ nốt nào cũng tự động nắn về nốt chuẩn gần nhất mà không cần bạn phải biết bài đó ở tone gì.
+2. **Chế độ khóa Tone chuẩn:**
+   - Hầu hết các bài hát Karaoke trên YouTube đều ghi sẵn TONE ngay trên tựa đề hoặc video mở đầu (Ví dụ: *Tone Nam Am*, *Tone Nữ C*).
+   - Bạn chỉ cần click chọn đúng `LA THỨ (Am)` hoặc `ĐÔ TRƯỞNG (C)` trên phần mềm để thuật toán bẻ nốt chuẩn xác và gắt hơn nữa.
+
+---
+
+### E. So sánh 2 phương án nguồn phát YouTube
+
+| Tiêu chí | Phương án 1: Phát YouTube trên Smart TV | Phương án 2: Phát YouTube trên Laptop (Khuyên dùng) |
+|:---|:---|:---|
+| **Cách kết nối** | TV tự mở YouTube $\rightarrow$ kéo dây âm thanh từ TV vào cổng TAPE của Vang cơ. | Mở YouTube trên Laptop $\rightarrow$ cắm 1 dây HDMI lên TV để chiếu chữ to. |
+| **Đường dây âm thanh** | Phải đi thêm dây âm thanh từ TV xuống Vang cơ. | **Gọn nhất:** Laptop xuất 1 đường âm thanh duy nhất (gộp cả Nhạc Beat + Giọng AutoTune) xuống Vang cơ. |
+| **Tìm kiếm bài hát** | Bấm từng chữ bằng remote TV (chậm). | Gõ bàn phím laptop chọn bài cực nhanh (gấp 10 lần). |
+| **Nhận diện Tông bài** | Không phân tích được beat từ TV. | Dễ dàng nhìn thấy ngay tựa đề Tone Nam/Nữ để chọn trên Karatune. |
+

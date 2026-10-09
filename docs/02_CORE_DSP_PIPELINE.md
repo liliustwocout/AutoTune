@@ -40,17 +40,19 @@ graph TD
 
 Giọng người là âm thanh phức hợp (complex periodic signal) gồm tần số cơ bản ($f_0$) và vô số âm bồi (harmonics). Nếu chỉ dùng FFT tìm đỉnh tần số lớn nhất sẽ rất dễ bị bắt nhầm sóng bồi bậc 2, bậc 3 thay vì $f_0$.
 
-Dự án áp dụng thuật toán **McLeod Pitch Method (MPM)** kết hợp **YIN Algorithm**:
+Dự án áp dụng thuật toán **YIN Pitch Detection (de Cheveigné & Kawahara)** với 4 giai đoạn chính xác tuyệt đối:
 
-1. **Hàm Normalized Square Difference Function (NSDF):**
-   $$r_t(\tau) = \frac{2 \sum_{j=0}^{W-1} x_j x_{j+\tau}}{\sum_{j=0}^{W-1} x_j^2 + \sum_{j=0}^{W-1} x_{j+\tau}^2}$$
-   - Giá trị $r_t(\tau)$ dao động từ -1 đến +1.
-   - Đỉnh cực đại dương đầu tiên vượt ngưỡng (Clarity Threshold $\approx 0.85$) chính là chu kỳ dao động $T_0$ của giọng hát.
-2. **Nội suy parabol (Parabolic Interpolation):**
-   - Giúp đạt độ chính xác ở mức phần thập phân của mẫu (sub-sample precision), cho phép đo tần số chính xác đến từng cent mà không cần tăng buffer size.
-3. **Tính tần số cơ bản:**
-   $$f_0 = \frac{\text{Sample Rate}}{\tau_{\text{peak}}}$$
-   - Dải tần số quét giọng người: Giới hạn từ **65Hz (nốt C2)** đến **1050Hz (nốt C6)**.
+1. **Hàm sai phân bình phương (Difference Function):**
+   $$d_t(\tau) = \sum_{j=0}^{W-1} (x_j - x_{j+\tau})^2$$
+   - Với $W = 512$ mẫu (~10.7ms tại 48kHz).
+2. **Hàm chuẩn hóa trung bình lũy tiến (CMNDF - Cumulative Mean Normalized Difference Function):**
+   $$d'_t(\tau) = \begin{cases} 1 & \text{nếu } \tau = 0 \\ \frac{d_t(\tau)}{\frac{1}{\tau} \sum_{j=1}^\tau d_t(j)} & \text{với } \tau > 0 \end{cases}$$
+3. **Khóa cực tiểu đầu tiên dưới ngưỡng (Absolute Thresholding $\le 0.20$):**
+   - Chọn cực tiểu đầu tiên có $d'_t(\tau) < 0.20$ để **khóa chặt tần số cơ bản ($f_0$)**, loại bỏ 100% lỗi nhảy quãng (octave jump) và lỗi bắt nhầm nốt trầm (subharmonic errors tạo hình răng cưa).
+4. **Nội suy parabol (Parabolic Interpolation) & Cơ chế Pitch Hold:**
+   - Đạt độ chính xác ở mức phần thập phân của mẫu (sub-sample precision).
+   - **Pitch Sustain Hold (~85ms):** Giữ nguyên cao độ trước đó nếu người hát hụt hơi nhẹ hoặc luyến láy giữa các nguyên âm, không để tín hiệu rơi dốc về 0 gây giật cục.
+   - **Schmitt Trigger Noise Gate:** Mở cổng ở $-54\text{ dBFS}$ và giữ mở đến $-62\text{ dBFS}$, chống hiện tượng "chớp nhả" âm lượng.
 
 ---
 

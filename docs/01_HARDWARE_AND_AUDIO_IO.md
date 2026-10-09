@@ -18,26 +18,21 @@ Tài liệu này được cập nhật chính xác theo **dàn thiết bị âm 
 
 ## 2. Bạn cần mua thêm những gì?
 
-Tùy vào nhu cầu hát của bạn, có 2 phương án đầu tư:
+### Phương án TỐI ƯU & TIẾT KIỆM NHẤT: Tận dụng trực tiếp Laptop (Chỉ ~70.000đ - 90.000đ)
+> **Khuyên dùng:** Không cần mua Soundcard rời 500.000đ vì gây lãng phí và trùng lặp tính năng! Nhà bạn đã có Vang cơ Calidona P828 chỉnh Echo/Bass/Treble cực hay, và Laptop Nitro 5 đã chạy phần mềm `karatune.exe` xử lý AutoTune thời gian thực siêu mượt (<5.3ms).
 
-### Phương án A: Muốn hát AutoTune thời gian thực chuyên nghiệp nhất (Khuyên dùng)
-*Tổng chi phí: ~320.000đ*
+*Tổng chi phí: **~70.000đ - 90.000đ** (rẻ hơn 5-6 lần so với mua Soundcard)*
 
-| Phụ kiện cần mua | Tác dụng | Giá tham khảo | Link mua tham khảo |
+| Phụ kiện cần mua | Tác dụng | Giá tham khảo | Link tìm kiếm Shopee |
 |:---|:---|:---:|:---:|
-| **1. Soundcard USB (K300 hoặc XOX K10)** | - Cắm mic dây trực tiếp (chân 6.5mm có sẵn).<br>- Có núm vặn to nhỏ Gain mic, Echo, Bass, Treble bằng tay.<br>- Kết nối USB với Laptop làm card thu âm không trễ.<br>- Có sẵn nút AutoTune cứng ăn liền. | ~280.000đ | [Soundcard K300 Shopee](https://shopee.vn/search?keyword=soundcard%20k300) / [XOX K10 Shopee](https://shopee.vn/search?keyword=soundcard%20xox%20k10) |
-| **2. Dây 3.5mm ra 2 đầu hoa sen (RCA)** | Dẫn âm thanh từ cổng OUT của Soundcard vào cổng TAPE/VIDEO mặt sau Vang cơ Calidona. | ~35.000đ | [Dây 3.5 ra RCA hoa sen](https://shopee.vn/search?keyword=day%203.5%20ra%20hoa%20sen%20rca) |
+| **1. Cáp chia tai nghe & mic 3.5mm (Y-Splitter)**<br>*(Hoặc củ USB Soundcard mini)* | Cắm vào jack 3.5mm (hoặc cổng USB) của Laptop để tách riêng 1 cổng Mic In và 1 cổng Loa Out. | ~25.000đ - 45.000đ | [Cáp chia tai nghe & mic 3.5mm](https://shopee.vn/search?keyword=cap%20chia%20tai%20nghe%20va%20mic%203.5mm) hoặc [USB Sound Card mini 7.1](https://shopee.vn/search?keyword=usb%20sound%20card%207.1) |
+| **2. Đầu chuyển Jack 6.5mm (cái) sang 3.5mm (đực)** | Cắm chân to 6.5mm của Micro dây vào lỗ Micro 3.5mm của cáp chia. | ~10.000đ - 15.000đ | [Jack chuyển 6.5 sang 3.5](https://shopee.vn/search?keyword=jack%20chuyen%206.5%20sang%203.5) |
+| **3. Dây 3.5mm ra 2 đầu hoa sen (RCA)** | Dẫn tiếng hát AutoTune từ cổng Loa của cáp chia vào cổng VIDEO (Audio In) sau Vang cơ Calidona. | ~25.000đ - 35.000đ | [Dây 3.5 ra RCA hoa sen](https://shopee.vn/search?keyword=day%203.5%20ra%20hoa%20sen%20rca) |
 
 ---
 
-### Phương án B: Tận dụng trực tiếp Laptop không mua Soundcard (Tiết kiệm nhất)
-*Tổng chi phí: ~90.000đ*
-
-| Phụ kiện cần mua | Tác dụng | Giá tham khảo | Link mua tham khảo |
-|:---|:---|:---:|:---:|
-| **1. Cáp chia tai nghe & mic 3.5mm (Ugreen AV140)** | Cắm vào jack 3.5mm của Nitro 5 để tách riêng 1 cổng Mic In và 1 cổng Loa Out. | ~65.000đ | [Cáp chia Ugreen AV140](https://shopee.vn/search?keyword=ugreen%20av140) |
-| **2. Đầu chuyển Jack 6.5mm (cái) sang 3.5mm (đực)** | Cắm chân to 6.5mm của mic dây vào lỗ Micro 3.5mm của cáp chia. | ~20.000đ | [Jack 6.5 cái sang 3.5 đực](https://shopee.vn/search?keyword=jack%206.5%20cai%20sang%203.5%20duc) |
-| **3. Dây 3.5mm ra 2 đầu hoa sen (RCA)** | Dẫn tiếng từ cổng Loa của cáp chia vào mặt sau Vang cơ Calidona. | ~35.000đ | [Dây 3.5 ra RCA hoa sen](https://shopee.vn/search?keyword=day%203.5%20ra%20hoa%20sen%20rca) |
+### Khi nào mới cần Soundcard rời? (Không khuyến khích)
+Các loại Soundcard livestream ngoài thị trường (như K300, XOX K10, Icon Upod) thường có giá từ 300.000đ đến hơn 500.000đ - 1.000.000đ. Chúng chỉ thực sự cần thiết nếu bạn livestream trên điện thoại hoặc dùng mic thu âm condenser 48V. Với dàn karaoke gia đình đã có sẵn Vang cơ Calidona + Loa JBL, việc bỏ ra 500k mua Soundcard là **hoàn toàn không cần thiết**.
 
 ---
 
@@ -49,51 +44,34 @@ Nhà bạn đã có **Màn hình Tivi kết nối trực tiếp Youtube**, đi�
 
 ---
 
-## 3. Sơ đồ đấu nối chi tiết (Hardware Wiring Diagrams)
+## 3. Sơ đồ đấu nối chi tiết (Tiết kiệm nhất & Khuyên dùng)
 
-### SƠ ĐỒ 1: Hát AutoTune với Soundcard USB (Chuẩn nhất)
-
-```
-[Micro Dây (Chân 6.5mm)]
-       │
-       ▼ (Cắm vào cổng MIC 1 trên mặt trước Soundcard)
-[SOUNDCARD USB (K300 / XOX K10)] ◄────── (Dây cáp USB cắm vào cổng USB của Laptop Nitro 5)
-       │                                     Laptop chạy phần mềm 'karatune.exe'
-       │
-       ▼ (Cắm vào cổng OUT 3.5mm của Soundcard)
-[Dây 3.5mm ra 2 đầu Hoa Sen (RCA)]
-       │
-       ▼ (Cắm vào cổng TAPE hoặc VIDEO ở mặt sau)
-[VANG CƠ Calidona P828] ──(Nhấn nút chọn cổng TAPE/VIDEO ở mặt trước)
-       │
-       ▼ (Dây Canon XLR hoặc Hoa Sen từ cổng Out của Vang cơ)
-[CỤC ĐẨY CÔNG SUẤT Yamaha P7000S]
-       │
-       ▼ (Dây loa Speakon)
-[CẶP LOA CHÍNH JBL]
-```
-
----
-
-### SƠ ĐỒ 2: Hát AutoTune trực tiếp qua Laptop (Dùng Cáp chia Y-Splitter)
 
 ```
-[Micro Dây] ──► [Đầu chuyển 6.5mm cái sang 3.5mm đực]
-                       │
-                       ▼ (Cắm vào lỗ MICRO trên cáp chia)
-[Cáp Chia Ugreen AV140] ◄──────── Cắm đầu đực 3.5mm vào Laptop Nitro 5
-       │ (Lỗ TAI NGHE / LOA trên cáp chia)
-       ▼
-[Dây 3.5mm ra 2 đầu Hoa Sen RCA]
+[SMART TIVI (Phát Youtube Beat)]
        │
-       ▼ (Cắm vào cổng TAPE hoặc VIDEO ở mặt sau)
-[VANG CƠ Calidona P828]
+       ▼ (Dây Optical / Bluetooth hoặc Dây hoa sen RCA)
+       │ (Cắm vào cổng TAPE ở mặt sau Vang cơ)
        │
-       ▼
-[CỤC ĐẨY YAMAHA P7000S]
-       │
-       ▼
-[CẶP LOA JBL]
+       ├─────────────────────────────────────────────────┐
+       │                                                 ▼
+[Micro Dây (Jack 6.5mm)]                        [VANG CƠ Calidona P828]
+       │                                                 ▲
+       ▼ [Đầu chuyển 6.5mm sang 3.5mm]                   │ (Cắm vào cổng VIDEO Audio IN)
+       │                                                 │
+       ▼ (Cắm vào lỗ MIC của Cáp chia)                   │ [Dây 3.5mm ra 2 đầu Hoa Sen RCA]
+[CÁP CHIA Y-SPLITTER 3.5MM (hoặc USB Sound mini)]        │
+       ▲                                                 │
+       │ (Cắm vào jack 3.5mm hoặc cổng USB của Laptop)   │
+[LAPTOP NITRO 5 (Chạy 'karatune.exe')] ──────────────────┘
+  - Nhận giọng mộc qua WASAPI (<5.3ms)
+  - Xử lý AutoTune thời gian thực
+  - Xuất giọng hát đã bẻ nốt qua cổng Loa
+                                                         │
+                                                         ▼ (Dây Canon XLR / RCA Out)
+                                                [CỤC ĐẨY YAMAHA P7000S]
+                                                         │
+                                                         ▼ (Dây Speakon)
 ```
 
 ---
